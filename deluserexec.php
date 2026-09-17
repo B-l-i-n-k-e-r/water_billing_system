@@ -1,23 +1,27 @@
 <?php
-include 'auth.php';
-checkLevel([1]);
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Authentication check
-if (!isset($_SESSION['id'])) {
+include_once 'auth.php';
+checkLevel([1]); // Restricted to Admin
+
+$logged_in_user_id = $_SESSION['id'] ?? $_SESSION['SESS_MEMBER_ID'] ?? null;
+
+if (!$logged_in_user_id) {
     header("Location: index.php");
     exit();
 }
 
-include 'db.php';
+include_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
     $id = intval($_POST['id']);
-    $logged_in_user_id = intval($_SESSION['id']);
+    $logged_in_user_id = intval($logged_in_user_id);
 
     // Prevent user from deleting their own active session
     if ($id === $logged_in_user_id) {
-        echo '<script>alert("You cannot delete your own logged-in account!"); window.location.href="user.php";</script>';
+        header("Location: user.php?status=self_delete_error");
         exit();
     }
 
@@ -29,16 +33,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
         mysqli_stmt_close($stmt);
 
         if ($success) {
-            echo '<script>alert("User deleted successfully."); window.location.href="user.php";</script>';
+            header("Location: user.php?status=deleted");
         } else {
-            echo '<script>alert("Error deleting user: ' . addslashes(mysqli_error($conn)) . '"); window.location.href="user.php";</script>';
+            header("Location: user.php?status=error");
         }
     } else {
-        echo '<script>alert("Invalid user ID."); window.location.href="user.php";</script>';
+        header("Location: user.php?status=invalid_id");
     }
     exit();
 } else {
     header("Location: user.php");
     exit();
 }
-?>

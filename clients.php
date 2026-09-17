@@ -1,8 +1,8 @@
-```php
 <?php
 session_start();
 
-include 'auth.php';
+// Include authentication and check authorization
+include_once 'auth.php';
 checkLevel([1, 2, 3]);
 
 // Check whether user is logged in
@@ -14,424 +14,234 @@ if (!isset($_SESSION['id'])) {
 $session = $_SESSION['id'];
 
 // Database connection
-include 'db.php';
+include_once 'db.php';
 
-// Get logged-in user's name
+// Get logged-in user's name securely
 $sessionname = "";
 
-$stmt = mysqli_prepare($conn, "SELECT name FROM user WHERE id = ?");
-mysqli_stmt_bind_param($stmt, "i", $session);
-mysqli_stmt_execute($stmt);
+if ($stmt = mysqli_prepare($conn, "SELECT name FROM user WHERE id = ?")) {
+    mysqli_stmt_bind_param($stmt, "i", $session);
+    mysqli_stmt_execute($stmt);
+    $resultUser = mysqli_stmt_get_result($stmt);
 
-$resultUser = mysqli_stmt_get_result($stmt);
-
-if ($row = mysqli_fetch_assoc($resultUser)) {
-    $sessionname = $row['name'];
+    if ($row = mysqli_fetch_assoc($resultUser)) {
+        $sessionname = $row['name'];
+    }
+    mysqli_stmt_close($stmt);
 }
-
-mysqli_stmt_close($stmt);
 ?>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
-<html xmlns="http://www.w3.org/1999/xhtml">
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-
-    <title>Water Billing System</title>
-
+    <style>
+  /* Remove Facebox default container padding, background, and border */
+  #facebox .popup {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+  }
+  #facebox .content {
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+  }
+  /* Hide Facebox default close icon to avoid duplicate 'X' buttons */
+  #facebox .close {
+      display: none !important;
+  }
+</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clients - Water Billing System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- jQuery & Facebox -->
     <link href="src/facebox.css" media="screen" rel="stylesheet" type="text/css" />
-
-    <link rel="stylesheet"
-          type="text/css"
-          href="css/bootstrap/dist/css/bootstrap.css" />
-
-    <link rel="stylesheet"
-          type="text/css"
-          href="css/bootstrap/dist/css/bootstrap.min.css" />
-
-    <link rel="stylesheet"
-          type="text/css"
-          href="css/bootstrap-theme.css" />
-
-    <link rel="stylesheet"
-          type="text/css"
-          href="css/bootstrap-theme.min.css" />
-
-    <script src="css/bootstrap/dist/js/jquery.js"></script>
-
-    <script src="css/bootstrap/dist/js/bootstrap.min.js"></script>
-
     <script src="lib/jquery.js" type="text/javascript"></script>
-
     <script src="src/facebox.js" type="text/javascript"></script>
-
-    <script src="js/application.js"
-            type="text/javascript"
-            charset="utf-8"></script>
-
-    <script type="text/javascript">
-
-        jQuery(document).ready(function($) {
-
-            $('a[rel*=facebox]').facebox({
-                loadingImage: 'src/loading.gif',
-                closeImage: 'src/closelabel.png'
-            });
-
-        });
-
-    </script>
-
-    <style type="text/css">
-
-        #wrapper {
-            width: 100%;
-            margin: 0 auto;
-            border: 3px solid rgba(0,0,0,0);
-            border-radius: 5px;
-            box-shadow: 0 0 18px rgba(0,0,0,0.4);
-            margin-top: 2%;
-            padding: 10px;
-            min-height: 550px;
-        }
-
-        #header {
-            width: 900px;
-            height: 100px;
-        }
-
-        table th {
-            background: #999;
-        }
-
-        #header ul li {
-            list-style: none;
-            float: left;
-            margin-top: 30px;
-            margin-left: 10px;
-        }
-
-    </style>
-
 </head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
 
-<body>
-
-<div class="container">
-
-    <div id="wrapper">
-
-        <h1>
-            <center>
-                <b>Water Billing System</b>
-            </center>
-        </h1>
-
-        <div style="color:#F00; font-size:12px; text-align:right;">
-
-            <span>
-                <?php echo htmlspecialchars($sessionname); ?>
-            </span>
-
-            &nbsp;
-
-            <a href="logout.php">
-                <span class="btn btn-danger glyphicon glyphicon-log-out">
-                    &nbsp;Logout
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-600/20 text-blue-400 rounded-lg border border-blue-500/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 15.1 5 17 5 15a7 7 0 0 0 7 7z"/></svg>
+                </div>
+                <h1 class="text-lg font-bold tracking-tight text-white">Water Billing System</h1>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-emerald-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                    <?php echo htmlspecialchars($sessionname); ?>
                 </span>
+                <a href="logout.php" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 rounded-lg transition duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Navigation Tabs -->
+        <nav class="flex space-x-2 border-b border-slate-800 pb-4 mb-8">
+            <a href="billing.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Home
             </a>
+            <a href="bill.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg> Billing
+            </a>
+            <a href="user.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Users
+            </a>
+            <a href="clients.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl shadow-md shadow-blue-600/20">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg> Clients
+            </a>
+        </nav>
 
-        </div>
-
-        <!-- Navigation -->
-
-        <ul class="nav nav-pills">
-
-            <li>
-                <a href="billing.php">
-                    <span class="glyphicon glyphicon-home"></span>
-                    &nbsp;Home
-                </a>
-            </li>
-
-            <li>
-                <a href="bill.php">
-                    <span class="glyphicon glyphicon-usd"></span>
-                    &nbsp;Billing
-                </a>
-            </li>
-
-            <li>
-                <a href="user.php">
-                    <span class="glyphicon glyphicon-user"></span>
-                    &nbsp;Users
-                </a>
-            </li>
-
-            <li class="active">
-                <a href="clients.php">
-                    <span class="glyphicon glyphicon-list"></span>
-                    &nbsp;Clients
-                </a>
-            </li>
-
-        </ul>
-
-        <hr color="#999999" />
-
-        <div style="overflow:auto; height:350px;">
-
-            <!-- Add Client Modal -->
-
-            <div class="modal fade" id="myModal" role="dialog">
-
-                <div class="modal-dialog" style="width:400px;">
-
-                    <div class="modal-content">
-
-                        <div class="modal-header">
-
-                            <button type="button"
-                                    class="close"
-                                    data-dismiss="modal">
-                                &times;
-                            </button>
-
-                            <h4 class="modal-title">
-                                Water Billing System
-                            </h4>
-
-                        </div>
-
-                        <div class="modal-body">
-
-                            <?php include "addclient.php"; ?>
-
-                        </div>
-
-                        <div class="modal-footer">
-
-                            <button type="button"
-                                    class="btn btn-default"
-                                    data-dismiss="modal">
-                                Close
-                            </button>
-
-                        </div>
-
-                    </div>
-
+        <!-- Main Client Panel -->
+        <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden">
+            
+            <!-- Panel Header -->
+            <div class="p-6 border-b border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-emerald-400"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg> System Clients
+                    </h2>
+                    <p class="text-slate-400 text-xs mt-1">Manage registered water service account holders and details</p>
                 </div>
-
+                
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="document.getElementById('clientModal').classList.remove('hidden')" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Add Client
+                    </button>
+                    <a href="deleteclient.php" onclick="return confirm('Are you sure you want to delete all clients?');" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 rounded-lg transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg> Delete All
+                    </a>
+                </div>
             </div>
 
-            <!-- End Add Client Modal -->
+            <!-- Data Table -->
+            <div class="overflow-x-auto">
+                <?php
+                $result = mysqli_query($conn, "SELECT * FROM owners ORDER BY id DESC");
 
+                if (!$result) {
+                    echo '<div class="p-6 text-red-400 text-sm">Error loading clients: ' . htmlspecialchars(mysqli_error($conn)) . '</div>';
+                } else {
+                ?>
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-900/60 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/60">
+                        <tr>
+                            <th class="px-6 py-4 font-semibold shrink-0">ID</th>
+                            <th class="px-6 py-4 font-semibold whitespace-nowrap">First Name</th>
+                            <th class="px-6 py-4 font-semibold whitespace-nowrap">Last Name</th>
+                            <th class="px-6 py-4 font-semibold shrink-0">M.I.</th>
+                            <th class="px-6 py-4 font-semibold whitespace-nowrap">Address</th>
+                            <th class="px-6 py-4 font-semibold whitespace-nowrap">Contact</th>
+                            <th class="px-6 py-4 font-semibold text-right whitespace-nowrap">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        <?php if (mysqli_num_rows($result) == 0): ?>
+                        <tr>
+                            <td colspan="7" class="px-6 py-8 text-center text-slate-500">No clients found.</td>
+                        </tr>
+                        <?php else: ?>
+                            <?php while ($row = mysqli_fetch_assoc($result)): ?>
+                            <tr class="record hover:bg-slate-700/30 transition duration-150">
+                                <td class="px-6 py-4 font-mono text-slate-400 text-xs shrink-0"><?php echo htmlspecialchars($row['id']); ?></td>
+                                <td class="px-6 py-4 font-medium text-white whitespace-nowrap"><?php echo htmlspecialchars($row['fname']); ?></td>
+                                <td class="px-6 py-4 font-medium text-white whitespace-nowrap"><?php echo htmlspecialchars($row['lname']); ?></td>
+                                <td class="px-6 py-4 text-slate-400 shrink-0"><?php echo htmlspecialchars($row['mi']); ?></td>
+                                <td class="px-6 py-4 text-slate-300 whitespace-nowrap"><?php echo htmlspecialchars($row['address']); ?></td>
+                                <td class="px-6 py-4 font-mono text-slate-400 text-xs whitespace-nowrap"><?php echo htmlspecialchars($row['contact']); ?></td>
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                    <div class="inline-flex items-center justify-end gap-2">
+                                        <!-- Edit Action Button -->
+                                        <a rel="facebox" href="edit.php?id=<?php echo urlencode($row['id']); ?>" 
+                                           class="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition inline-flex items-center justify-center border border-slate-700/50" 
+                                           title="Edit Client">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                        </a>
 
-            <div class="panel panel-info">
-
-                <div class="panel-heading">
-
-                    <div class="panel-title">
-
-                        <h5>System Clients</h5>
-
-                        <button type="button"
-                                class="btn btn-primary btn-xs"
-                                data-toggle="modal"
-                                data-target="#myModal">
-                            + Add client
-                        </button>
-
-                        &nbsp;
-
-                        <a href="deleteclient.php"
-                           onclick="return confirm('Are you sure you want to delete all clients?');">
-
-                            <button type="button"
-                                    class="btn btn-danger btn-xs">
-                                Delete all
-                            </button>
-
-                        </a>
-
-                    </div>
-
-                </div>
-
-
-                <div class="panel-body">
-
-                    <?php
-
-                    // Get all clients
-                    $result = mysqli_query($conn, "SELECT * FROM owners ORDER BY id DESC");
-
-                    if (!$result) {
-
-                        echo '<div class="alert alert-danger">
-                                Error loading clients: '
-                                . htmlspecialchars(mysqli_error($conn)) .
-                              '</div>';
-
-                    } else {
-
-                        echo '<table class="table table-bordered table-striped">';
-
-                        echo '<tr>';
-
-                        echo '<th>Id</th>';
-                        echo '<th>Firstname</th>';
-                        echo '<th>Lastname</th>';
-                        echo '<th>Mi</th>';
-                        echo '<th>Address</th>';
-                        echo '<th>Contact</th>';
-                        echo '<th>Action</th>';
-
-                        echo '</tr>';
-
-
-                        if (mysqli_num_rows($result) == 0) {
-
-                            echo '<tr>';
-
-                            echo '<td colspan="7" style="text-align:center;">
-                                    No clients found.
-                                  </td>';
-
-                            echo '</tr>';
-
-                        } else {
-
-                            while ($row = mysqli_fetch_assoc($result)) {
-
-                                echo '<tr>';
-
-                                echo '<td>'
-                                    . htmlspecialchars($row['id'])
-                                    . '</td>';
-
-                                echo '<td>'
-                                    . htmlspecialchars($row['fname'])
-                                    . '</td>';
-
-                                echo '<td>'
-                                    . htmlspecialchars($row['lname'])
-                                    . '</td>';
-
-                                echo '<td>'
-                                    . htmlspecialchars($row['mi'])
-                                    . '</td>';
-
-                                echo '<td>'
-                                    . htmlspecialchars($row['address'])
-                                    . '</td>';
-
-                                echo '<td>'
-                                    . htmlspecialchars($row['contact'])
-                                    . '</td>';
-
-                                echo '<td>';
-
-                                echo '<a rel="facebox"
-                                         href="edit.php?id='
-                                         . urlencode($row['id']) .
-                                         '">
-
-                                        <button type="button"
-                                                class="btn btn-default btn-xs">
-
-                                            <span class="glyphicon glyphicon-edit"></span>
-
-                                        </button>
-
-                                      </a>';
-
-                                echo ' &nbsp; ';
-
-                                echo '<a rel="facebox"
-                                         href="del.php?id='
-                                         . urlencode($row['id']) .
-                                         '">
-
-                                        <button type="button"
-                                                class="btn btn-danger btn-xs">
-
-                                            <span class="glyphicon glyphicon-trash"></span>
-
-                                        </button>
-
-                                      </a>';
-
-                                echo '</td>';
-
-                                echo '</tr>';
-                            }
-                        }
-
-                        echo '</table>';
-                    }
-
-                    ?>
-
-                </div>
-
+                                        <!-- Delete Action Button -->
+                                        <a rel="facebox" href="del.php?id=<?php echo urlencode($row['id']); ?>" 
+                                           id="<?php echo $row['id']; ?>" 
+                                           class="delbutton p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition inline-flex items-center justify-center border border-slate-700/50" 
+                                           title="Delete Client">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endwhile; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+                <?php } ?>
             </div>
 
         </div>
+    </main>
 
+    <!-- Client Modal Overlay -->
+    <div id="clientModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+        <div class="bg-slate-800 border border-slate-700/80 w-full max-w-lg rounded-2xl shadow-2xl p-6 text-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-4 mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Add New Client
+                </h3>
+                <button type="button" onclick="document.getElementById('clientModal').classList.add('hidden')" class="text-slate-400 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body text-slate-200">
+                <?php include "addclient.php"; ?>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button type="button" onclick="document.getElementById('clientModal').classList.add('hidden')" class="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                    Close
+                </button>
+            </div>
+        </div>
     </div>
 
-</div>
+    <!-- Scripts Initialization -->
+    <script type="text/javascript">
+    $(document).ready(function() {
+        // Initialize Facebox
+        $('a[rel*=facebox]').facebox({
+            loadingImage : 'src/loading.gif',
+            closeImage   : 'src/closelabel.png'
+        });
 
-
-<script src="js/jquery.js"></script>
-
-<script type="text/javascript">
-
-$(function() {
-
-    $(".delbutton").click(function() {
-
-        var element = $(this);
-
-        var del_id = element.attr("id");
-
-        var info = 'id=' + del_id;
-
-        if (confirm("Sure you want to delete this client? There is NO undo!")) {
-
-            $.ajax({
-
-                type: "GET",
-
-                url: "delete.php",
-
-                data: info,
-
-                success: function() {
-
-                }
-
-            });
-
-            $(this).parents(".record")
-                .animate({ backgroundColor: "#fbc7c7" }, "fast")
-                .animate({ opacity: "hide" }, "slow");
-        }
-
-        return false;
-
+        // AJAX Delete action handler
+        $(".delbutton").click(function() {
+            var element = $(this);
+            var del_id = element.attr("id");
+            var info = 'id=' + del_id;
+            if (confirm("Sure you want to delete this record? There is NO undo!")) {
+                $.ajax({
+                    type: "GET",
+                    url: "delete.php",
+                    data: info,
+                    success: function() {}
+                });
+                $(this).parents(".record")
+                    .animate({ backgroundColor: "#fbc7c7" }, "fast")
+                    .animate({ opacity: "hide" }, "slow");
+            }
+            return false;
+        });
     });
-
-});
-
-</script>
-
+    </script>
 </body>
-
 </html>

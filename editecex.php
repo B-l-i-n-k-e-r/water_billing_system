@@ -1,14 +1,16 @@
 <?php
-include 'auth.php';
-checkLevel([1, 2, 3]);
 session_start();
 
-if (!isset($_SESSION['id'])) {
+include_once 'auth.php';
+checkLevel([1, 2, 3]);
+
+// Authentication check
+if (!isset($_SESSION['SESS_MEMBER_ID']) && !isset($_SESSION['id'])) {
     header("Location: index.php");
     exit();
 }
 
-include 'db.php';
+include_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
 
@@ -34,13 +36,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
             mysqli_stmt_execute($stmt2);
             mysqli_stmt_close($stmt2);
 
-            echo '<script>alert("Owner updated successfully!"); window.location.href="clients.php";</script>';
+            $_SESSION['success_msg'] = "Client details updated successfully!";
         } else {
-            echo '<script>alert("Error updating owner: ' . addslashes(mysqli_error($conn)) . '"); window.location.href="clients.php";</script>';
+            $_SESSION['error_msg'] = "Error updating owner: " . mysqli_error($conn);
         }
     } else {
-        echo '<script>alert("Invalid Owner ID."); window.location.href="clients.php";</script>';
+        $_SESSION['error_msg'] = "Invalid Client ID.";
     }
+
+    header("Location: clients.php");
     exit();
 } else {
     header("Location: clients.php");

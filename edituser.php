@@ -1,22 +1,24 @@
 <?php
-include 'auth.php';
-checkLevel([1]);
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Authentication check
-if (!isset($_SESSION['id'])) {
+include_once 'auth.php';
+checkLevel([1]); // Restricted to Admin
+
+if (!isset($_SESSION['id']) && !isset($_SESSION['SESS_MEMBER_ID'])) {
     header("Location: index.php");
     exit();
 }
 
-include 'db.php';
+include_once 'db.php';
 
 $user_id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 
 $id = $username = $name = "";
 
 if ($user_id > 0) {
-    // Fetch user details safely without retrieving plain-text passwords
+    // Fetch user details safely
     $stmt = mysqli_prepare($conn, "SELECT id, username, name FROM user WHERE id = ?");
     mysqli_stmt_bind_param($stmt, "i", $user_id);
     mysqli_stmt_execute($stmt);
@@ -27,47 +29,63 @@ if ($user_id > 0) {
         $username = $test['username'];
         $name     = $test['name'];
     } else {
-        die("Error: Data not found..");
+        die("<div class='p-4 text-red-400 bg-slate-900 rounded-xl'>Error: User data not found.</div>");
     }
     mysqli_stmt_close($stmt);
 } else {
-    die("Invalid user ID.");
+    die("<div class='p-4 text-red-400 bg-slate-900 rounded-xl'>Invalid User ID.</div>");
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Users Update</title>
-    <link rel="stylesheet" type="text/css" href="css/bootstrap/dist/css/bootstrap.min.css" />
-</head>
-<body>
 
-<div class="container" style="max-width: 500px; margin-top: 30px;">
-    <h1 class="text-center">Users Update</h1>
+<div class="p-6 bg-slate-800 text-slate-100 rounded-2xl max-w-md w-full border border-slate-700 shadow-2xl relative z-50">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-slate-700 pb-4 mb-6">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-400"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit User Details
+        </h3>
+        <button type="button" onclick="$(document).trigger('close.facebox')" class="text-slate-400 hover:text-white transition p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+        </button>
+    </div>
 
-    <form method="post" action="edituserecex.php">
+    <!-- Edit User Form -->
+    <form method="post" action="edituserecex.php" class="space-y-4">
         <input type="hidden" name="id" value="<?php echo htmlspecialchars($id); ?>" />
 
-        <div class="form-group">
-            <label>Username:</label>
-            <input type="text" name="username" value="<?php echo htmlspecialchars($username); ?>" class="form-control" required />
+        <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                Username
+            </label>
+            <input type="text" name="username" value="<?php echo htmlspecialchars($username); ?>" required 
+                   class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition" />
         </div>
 
-        <div class="form-group">
-            <label>Name:</label>
-            <input type="text" name="name" value="<?php echo htmlspecialchars($name); ?>" class="form-control" required />
+        <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                Full Name
+            </label>
+            <input type="text" name="name" value="<?php echo htmlspecialchars($name); ?>" required 
+                   class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition" />
         </div>
 
-        <div class="form-group">
-            <label>New Password (leave blank to keep current password):</label>
-            <input type="password" name="password" value="" class="form-control" placeholder="••••••••" />
+        <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                New Password <span class="text-slate-500 text-[10px] normal-case">(leave blank to keep current)</span>
+            </label>
+            <input type="password" name="password" placeholder="••••••••" 
+                   class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition" />
         </div>
 
-        <br />
-        <input type="submit" name="save" value="Edit User" class="btn btn-primary form-control" />
+        <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-700/60 mt-6">
+            <button type="button" onclick="$(document).trigger('close.facebox')" 
+                    class="px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-xl transition">
+                Cancel
+            </button>
+            <button type="submit" name="save" 
+                    class="px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition shadow-md shadow-blue-600/20 active:scale-[0.98]">
+                Save Changes
+            </button>
+        </div>
     </form>
 </div>
-
-</body>
-</html>

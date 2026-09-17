@@ -1,37 +1,83 @@
 <?php
-include 'auth.php';
-checkLevel([1, 2, 3]);
-include 'db.php';
-if (isset($_POST['add'])) {
-    // Include database connection ($conn)
-    include 'db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-    // Sanitize and collect form inputs
-    $lname       = trim($_POST['lname']);
-    $fname       = trim($_POST['fname']);
-    $mi          = trim($_POST['mi']);
-    $address     = trim($_POST['address']);
-    $contact     = trim($_POST['contact']);
-    $meterReader = floatval($_POST['meterReader']);
+include_once 'auth.php';
+checkLevel([1, 2, 3]); // Access restricted to Admin, Cashier, and Manager
 
-    // 1. Insert new owner into 'owners' table
-    $stmt1 = mysqli_prepare($conn, "INSERT INTO owners (lname, fname, mi, address, contact) VALUES (?, ?, ?, ?, ?)");
-    mysqli_stmt_bind_param($stmt1, "sssss", $lname, $fname, $mi, $address, $contact);
-    $success1 = mysqli_stmt_execute($stmt1);
+include_once 'db.php';
 
-    // Get auto-incremented ID of the newly inserted client
-    $new_owner_id = mysqli_insert_id($conn);
-    mysqli_stmt_close($stmt1);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
 
-    // 2. Insert initial meter reading into 'tempo_bill'
-    if ($success1) {
-        $stmt2 = mysqli_prepare($conn, "INSERT INTO tempo_bill (id, Client, Prev) VALUES (?, ?, ?)");
-        mysqli_stmt_bind_param($stmt2, "isd", $new_owner_id, $fname, $meterReader);
-        mysqli_stmt_execute($stmt2);
-        mysqli_stmt_close($stmt2);
+    // Sanitize and collect form inputs safely
+    $lname       = trim($_POST['lname'] ?? '');
+    $fname       = trim($_POST['fname'] ?? '');
+    $mi          = trim($_POST['mi'] ?? '');
+    $address     = trim($_POST['address'] ?? '');
+    $contact     = trim($_POST['contact'] ?? '');
+    $meterReader = floatval($_POST['meterReader'] ?? 0);
+
+    // Basic validation
+    if (empty($fname) || empty($lname)) {
+        mysqli_close($conn);
+        echo '<script>alert("Error: First and Last name are required."); window.location.href="clients.php";</script>';
+        exit();
     }
 
-    // Redirect back to client list
+    // Begin atomic transaction
+    mysqli_begin_transaction($conn);
+
+    try {
+        // 1. Insert new client into 'owners' table
+        $stmt1 = mysqli_prepare($conn, "INSERT INTO owners (lname, fname, mi, address, contact) VALUES (?, ?, ?, ?, ?)");
+        if (!$stmt1) {
+            throw new Exception("Prepare failed (owners): " . mysqli_error($conn));
+        }
+        mysqli_stmt_bind_param($stmt1, "sssss", $lname, $fname, $mi, $address, $contact);
+        
+        if (!mysqli_stmt_execute($stmt1)) {
+            throw new Exception("Execute failed (owners): " . mysqli_stmt_error($stmt1));
+        }
+
+        // Retrieve auto-incremented primary key
+        $new_owner_id = mysqli_insert_id($conn);
+        mysqli_stmt_close($stmt1);
+
+        // 2. Insert initial meter reading record into 'tempo_bill'
+        $stmt2 = mysqli_prepare($conn, "INSERT INTO tempo_bill (id, Client, Prev) VALUES (?, ?, ?)");
+        if (!$stmt2) {
+            throw new Exception("Prepare failed (tempo_bill): " . mysqli_error($conn));
+        }
+
+        $full_client_name = trim($fname . ' ' . $lname);
+        mysqli_stmt_bind_param($stmt2, "isd", $new_owner_id, $full_client_name, $meterReader);
+
+        if (!mysqli_stmt_execute($stmt2)) {
+            throw new Exception("Execute failed (tempo_bill): " . mysqli_stmt_error($stmt2));
+        }
+        mysqli_stmt_close($stmt2);
+
+        // Commit transaction if both statements succeeded
+        mysqli_commit($conn);
+        mysqli_close($conn);
+
+        // Redirect on success
+        header("Location: clients.php");
+        exit();
+
+    } catch (Exception $e) {
+        // Rollback database changes on failure
+        mysqli_rollback($conn);
+        mysqli_close($conn);
+
+        echo '<script>alert("Error processing client registration: ' . addslashes($e->getMessage()) . '"); window.location.href="clients.php";</script>';
+        exit();
+    }
+} else {
+    if (isset($conn)) {
+        mysqli_close($conn);
+    }
     header("Location: clients.php");
     exit();
 }

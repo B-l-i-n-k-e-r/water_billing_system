@@ -1,8 +1,9 @@
 <?php
-include 'auth.php';
-checkLevel([1]);
 session_start();
-include 'db.php';
+
+include_once 'auth.php';
+checkLevel([1]); // Restricted to Admin
+include_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
 
@@ -14,11 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
 
     if (!empty($username) && !empty($password) && !empty($name)) {
 
-        // Hash the password securely for modern PHP authentication
+        // Hash password securely
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-        // 1. If an ID was provided, insert with ID; otherwise let AUTO_INCREMENT handle it
-        if ($id) {
+        // Prepare insert query
+        if ($id && $id > 0) {
             $stmt = mysqli_prepare($conn, "INSERT INTO user (id, username, password, name) VALUES (?, ?, ?, ?)");
             mysqli_stmt_bind_param($stmt, "isss", $id, $username, $hashed_password, $name);
         } else {
@@ -26,17 +27,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
             mysqli_stmt_bind_param($stmt, "sss", $username, $hashed_password, $name);
         }
 
-        // 2. Execute and check for success
+        // Execute and set session status messages
         if (mysqli_stmt_execute($stmt)) {
-            echo '<script>alert("User added successfully!"); window.location.href="user.php";</script>';
+            $_SESSION['success_msg'] = "User added successfully!";
         } else {
-            echo '<script>alert("Error adding user: ' . addslashes(mysqli_error($conn)) . '"); window.location.href="user.php";</script>';
+            $_SESSION['error_msg'] = "Error adding user: " . mysqli_error($conn);
         }
         mysqli_stmt_close($stmt);
 
     } else {
-        echo '<script>alert("Please fill in all required fields."); window.location.href="user.php";</script>';
+        $_SESSION['error_msg'] = "Please fill in all required fields.";
     }
+
+    header("Location: user.php");
     exit();
 } else {
     header("Location: user.php");

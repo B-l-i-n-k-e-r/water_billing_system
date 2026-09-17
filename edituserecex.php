@@ -1,8 +1,19 @@
 <?php
-include 'auth.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+include_once 'auth.php';
 checkLevel([1]); // Restricted to Admin
 
-include 'db.php';
+$logged_in_user_id = $_SESSION['id'] ?? $_SESSION['SESS_MEMBER_ID'] ?? null;
+
+if (!$logged_in_user_id) {
+    header("Location: index.php");
+    exit();
+}
+
+include_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
 
@@ -25,16 +36,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
         }
 
         $success = mysqli_stmt_execute($stmt);
+        
+        if ($success) {
+            $_SESSION['success_msg'] = "User details updated successfully!";
+        } else {
+            $_SESSION['error_msg'] = "Error updating user details: " . mysqli_error($conn);
+        }
         mysqli_stmt_close($stmt);
 
-        if ($success) {
-            echo '<script>alert("User details updated successfully!"); window.location.href="user.php";</script>';
-        } else {
-            echo '<script>alert("Error updating user details: ' . addslashes(mysqli_error($conn)) . '"); window.location.href="user.php";</script>';
-        }
     } else {
-        echo '<script>alert("Invalid User ID."); window.location.href="user.php";</script>';
+        $_SESSION['error_msg'] = "Invalid User ID.";
     }
+
+    header("Location: user.php");
     exit();
 } else {
     header("Location: user.php");

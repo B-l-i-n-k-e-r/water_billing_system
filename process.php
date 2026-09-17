@@ -3,9 +3,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-include 'db.php';
+include_once 'db.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username']) && isset($_POST['password'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['password'])) {
 
     $username = trim($_POST['username']);
     $password = trim($_POST['password']);
@@ -14,43 +14,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username']) && isset(
         
         // Retrieve id, password, and userlevel using a prepared statement
         $stmt = mysqli_prepare($conn, "SELECT id, password, userlevel FROM user WHERE username = ?");
-        mysqli_stmt_bind_param($stmt, "s", $username);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
+        
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "s", $username);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
 
-        if ($row = mysqli_fetch_assoc($result)) {
-            $hashed_password = $row['password'];
+            if ($row = mysqli_fetch_assoc($result)) {
+                $hashed_password = $row['password'];
 
-            // Check password using password_verify() with fallback for legacy plain-text passwords
-            if (password_verify($password, $hashed_password) || $password === $hashed_password) {
-                
-                // Re-hash plain-text legacy passwords automatically on login
-                if ($password === $hashed_password) {
-                    $new_hash = password_hash($password, PASSWORD_DEFAULT);
-                    $update_stmt = mysqli_prepare($conn, "UPDATE user SET password = ? WHERE id = ?");
-                    mysqli_stmt_bind_param($update_stmt, "si", $new_hash, $row['id']);
-                    mysqli_stmt_execute($update_stmt);
-                    mysqli_stmt_close($update_stmt);
+                // Verify password hash (with fallback for legacy plain-text passwords)
+                if (password_verify($password, $hashed_password) || $password === $hashed_password) {
+                    
+                    // Re-hash plain-text legacy passwords automatically on successful login
+                    if ($password === $hashed_password) {
+                        $new_hash = password_hash($password, PASSWORD_DEFAULT);
+                        $update_stmt = mysqli_prepare($conn, "UPDATE user SET password = ? WHERE id = ?");
+                        if ($update_stmt) {
+                            mysqli_stmt_bind_param($update_stmt, "si", $new_hash, $row['id']);
+                            mysqli_stmt_execute($update_stmt);
+                            mysqli_stmt_close($update_stmt);
+                        }
+                    }
+
+                    // Regenerate session ID to prevent session fixation
+                    session_regenerate_id(true);
+
+                    // Store user session variables
+                    $_SESSION['id']        = $row['id'];
+                    $_SESSION['userlevel'] = isset($row['userlevel']) ? intval($row['userlevel']) : 3;
+                    
+                    mysqli_stmt_close($stmt);
+                    mysqli_close($conn);
+
+                    // Server-side redirect to dashboard router
+                    header("Location: dashboard.php");
+                    exit();
                 }
-
-                // Store user session variables
-                $_SESSION['id']        = $row['id'];
-                $_SESSION['userlevel'] = isset($row['userlevel']) ? intval($row['userlevel']) : 3;
-                
-                mysqli_stmt_close($stmt);
-
-                // Unified redirect to the dashboard router
-                echo '<script>window.location.href="dashboard.php";</script>';
-                exit();
             }
+            mysqli_stmt_close($stmt);
         }
-        mysqli_stmt_close($stmt);
     }
 
     // Invalid credentials or missing fields
-    header("Location: index.php?err");
+    if (isset($conn)) {
+        mysqli_close($conn);
+    }
+    header("Location: index.php?err=1");
     exit();
+
 } else {
+    if (isset($conn)) {
+        mysqli_close($conn);
+    }
     header("Location: index.php");
     exit();
 }
