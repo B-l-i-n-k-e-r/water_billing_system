@@ -14,6 +14,7 @@ $prev = 0;
 $owners_id = 0;
 $lname = '';
 $fname = '';
+$default_price = 10; // Fixed unit price or fetch dynamically if needed
 
 if ($id > 0) {
     // Fetch previous meter reading and owner details
@@ -109,17 +110,17 @@ if ($id > 0) {
             </div>
         </div>
 
-        <!-- Rate / Price -->
+        <!-- Rate / Price (Now Read-only) -->
         <div>
             <label class="block text-xs font-medium text-slate-300 mb-1.5">Price per m³</label>
             <div class="relative flex items-center">
                 <input type="number" 
                        step="any" 
                        name="price" 
-                       value="10" 
-                       required 
-                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition pr-16 font-mono" />
-                <span class="absolute right-3.5 text-xs text-slate-400 font-medium">Tshs</span>
+                       value="<?php echo htmlspecialchars($default_price); ?>" 
+                       readonly 
+                       class="w-full bg-slate-900/80 border border-slate-700 text-slate-400 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none cursor-not-allowed pr-16 font-mono" />
+                <span class="absolute right-3.5 text-xs text-slate-500 font-medium">Tshs</span>
             </div>
         </div>
 

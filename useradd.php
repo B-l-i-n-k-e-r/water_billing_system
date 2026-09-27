@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 include_once 'auth.php';
 checkLevel([1]); // Restricted to Admin
@@ -7,27 +9,20 @@ include_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
 
-    // Collect and sanitize inputs
-    $id       = isset($_POST['id']) ? intval($_POST['id']) : null;
-    $username = trim($_POST['username']);
-    $password = trim($_POST['password']);
-    $name     = trim($_POST['name']);
+    $username  = trim($_POST['username']);
+    $password  = trim($_POST['password']);
+    $name      = trim($_POST['name']);
+    $userlevel = isset($_POST['userlevel']) ? intval($_POST['userlevel']) : 3;
 
     if (!empty($username) && !empty($password) && !empty($name)) {
 
         // Hash password securely
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-        // Prepare insert query
-        if ($id && $id > 0) {
-            $stmt = mysqli_prepare($conn, "INSERT INTO user (id, username, password, name) VALUES (?, ?, ?, ?)");
-            mysqli_stmt_bind_param($stmt, "isss", $id, $username, $hashed_password, $name);
-        } else {
-            $stmt = mysqli_prepare($conn, "INSERT INTO user (username, password, name) VALUES (?, ?, ?)");
-            mysqli_stmt_bind_param($stmt, "sss", $username, $hashed_password, $name);
-        }
+        // Insert into database with userlevel
+        $stmt = mysqli_prepare($conn, "INSERT INTO user (username, password, name, userlevel) VALUES (?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "sssi", $username, $hashed_password, $name, $userlevel);
 
-        // Execute and set session status messages
         if (mysqli_stmt_execute($stmt)) {
             $_SESSION['success_msg'] = "User added successfully!";
         } else {
@@ -39,9 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
         $_SESSION['error_msg'] = "Please fill in all required fields.";
     }
 
+    mysqli_close($conn);
     header("Location: user.php");
     exit();
 } else {
+    if (isset($conn)) {
+        mysqli_close($conn);
+    }
     header("Location: user.php");
     exit();
 }

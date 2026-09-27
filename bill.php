@@ -1,23 +1,37 @@
-<?php 
-include 'auth.php';
-checkLevel([1, 2]);
+<?php
 session_start();
 if(!isset($_SESSION['id'])){
   header("Location: index.php");
   exit();
 }
 
+include 'auth.php';
+checkLevel([1, 2]);
+
 $session = $_SESSION['id'];
 include 'db.php';
+
+$sessionname = "User";
+$home_link = "dashboard.php"; // Default fallback
+$userlevel = 2; // Default fallback
+
 $result = mysqli_query($conn, "SELECT * FROM user WHERE id= '$session'");
 while($row = mysqli_fetch_array($result)) {
   $sessionname = $row['name'];
+  $userlevel = isset($row['userlevel']) ? intval($row['userlevel']) : 3;
+  
+  // Set dynamic home destination based on privilege level
+  if ($userlevel === 1) {
+      $home_link = "dashboard.php"; // Admin Dashboard
+  } else {
+      $home_link = "cashier_dashboard.php"; // Staff / Cashier Dashboard
+  }
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-     <style>
+    <style>
   /* Strip Facebox default background and border */
   #facebox .popup {
       background: transparent !important;
@@ -78,15 +92,20 @@ while($row = mysqli_fetch_array($result)) {
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <nav class="flex space-x-2 border-b border-slate-800 pb-4 mb-8">
-            <a href="billing.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
+            <a href="<?php echo htmlspecialchars($home_link); ?>" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
                 <i data-lucide="home" class="w-4 h-4"></i> Home
             </a>
+            
             <a href="bill.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl shadow-md shadow-blue-600/20">
                 <i data-lucide="receipt" class="w-4 h-4"></i> Billing
             </a>
+
+            <?php if ($userlevel === 1): ?>
             <a href="user.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
                 <i data-lucide="users" class="w-4 h-4"></i> Users
             </a>
+            <?php endif; ?>
+
             <a href="clients.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
                 <i data-lucide="database" class="w-4 h-4"></i> Clients
             </a>
@@ -100,6 +119,12 @@ while($row = mysqli_fetch_array($result)) {
                         <i data-lucide="receipt" class="w-5 h-5 text-cyan-400"></i> Billing Sequence
                     </h2>
                     <p class="text-slate-400 text-xs mt-1">Select an account to run billing actions or view active history</p>
+                </div>
+                <div>
+                    <a rel="facebox" href="addbill.php" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition shadow-md shadow-blue-600/20">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Add Bill</span>
+                    </a>
                 </div>
             </div>
 
@@ -118,9 +143,8 @@ while($row = mysqli_fetch_array($result)) {
                     </thead>
                     <tbody class="divide-y divide-slate-700/50">
                         <?php
-                        include 'db.php';
-                        $result = mysqli_query($conn, "SELECT * FROM owners");
-                        while($row = mysqli_fetch_array($result)):
+                        $result_owners = mysqli_query($conn, "SELECT * FROM owners");
+                        while($row = mysqli_fetch_array($result_owners)):
                         ?>
                         <tr class="hover:bg-slate-700/30 transition duration-150">
                             <td class="px-6 py-4 font-mono text-slate-400 text-xs shrink-0"><?php echo htmlspecialchars($row['id']); ?></td>
@@ -152,28 +176,6 @@ while($row = mysqli_fetch_array($result)) {
 
     <script>
         lucide.createIcons();
-    </script>
-
-    <script type="text/javascript">
-    $(function() {
-        $(".delbutton").click(function(){
-            var element = $(this);
-            var del_id = element.attr("id");
-            var info = 'id=' + del_id;
-            if(confirm("Sure you want to delete this update? There is NO undo!")) {
-                $.ajax({
-                    type: "GET",
-                    url: "delete.php",
-                    data: info,
-                    success: function(){
-                        element.parents(".record").animate({ backgroundColor: "#fbc7c7" }, "fast")
-                        .animate({ opacity: "hide" }, "slow");
-                    }
-                });
-            }
-            return false;
-        });
-    });
     </script>
 </body>
 </html>

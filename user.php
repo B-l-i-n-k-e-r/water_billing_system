@@ -1,40 +1,28 @@
-<?php 
-session_start();
-if(!isset($_SESSION['id'])){
-  header("Location: index.php");
-  exit();
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-include 'auth.php';
-checkLevel([1]);
-$session = $_SESSION['id'];
-include 'db.php';
+if (!isset($_SESSION['id'])) {
+    header("Location: index.php");
+    exit();
+}
 
-$result = mysqli_query($conn, "SELECT * FROM user WHERE id= '$session'");
-while($row = mysqli_fetch_array($result)) {
-  $sessionname = $row['name'];
+include_once 'auth.php';
+checkLevel([1]); // Admin only
+
+$session = $_SESSION['id'];
+include_once 'db.php';
+
+$sessionname = "Admin";
+$result_session = mysqli_query($conn, "SELECT name FROM user WHERE id = '$session'");
+if ($row_session = mysqli_fetch_array($result_session)) {
+    $sessionname = $row_session['name'];
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <style>
-  /* Strip Facebox default background and border */
-  #facebox .popup {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      padding: 0 !important;
-  }
-  #facebox .content {
-      background: transparent !important;
-      border: none !important;
-      padding: 0 !important;
-  }
-  #facebox .close {
-      display: none !important;
-  }
-</style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Users - Water Billing System</title>
@@ -51,8 +39,25 @@ while($row = mysqli_fetch_array($result)) {
         });
       });
     </script>
+    <style>
+      /* Strip Facebox default background and border */
+      #facebox .popup {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+      }
+      #facebox .content {
+          background: transparent !important;
+          border: none !important;
+          padding: 0 !important;
+      }
+      #facebox .close {
+          display: none !important;
+      }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased flex flex-col justify-between">
 
     <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -76,10 +81,10 @@ while($row = mysqli_fetch_array($result)) {
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-grow">
         
         <nav class="flex space-x-2 border-b border-slate-800 pb-4 mb-8">
-            <a href="billing.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
+            <a href="dashboard.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
                 <i data-lucide="home" class="w-4 h-4"></i> Home
             </a>
             <a href="bill.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
@@ -98,9 +103,9 @@ while($row = mysqli_fetch_array($result)) {
             <div class="p-6 border-b border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        <i data-lucide="shield" class="w-5 h-5 text-blue-400"></i> System Users
+                        <i data-lucide="shield" class="w-5 h-5 text-blue-400"></i> System Users & Roles
                     </h2>
-                    <p class="text-slate-400 text-xs mt-1">Manage system accounts, user levels, and access permissions</p>
+                    <p class="text-slate-400 text-xs mt-1">Manage system accounts, user roles, and access permissions</p>
                 </div>
                 
                 <div class="flex items-center gap-3">
@@ -121,6 +126,7 @@ while($row = mysqli_fetch_array($result)) {
                             <th class="px-6 py-4 font-semibold">Username</th>
                             <th class="px-6 py-4 font-semibold">Password</th>
                             <th class="px-6 py-4 font-semibold">Name</th>
+                            <th class="px-6 py-4 font-semibold">Role Level</th>
                             <th class="px-6 py-4 font-semibold text-right">Action</th>
                         </tr>
                     </thead>
@@ -128,12 +134,35 @@ while($row = mysqli_fetch_array($result)) {
                         <?php
                         $result = mysqli_query($conn, "SELECT * FROM user WHERE id != $session");
                         while($row = mysqli_fetch_array($result)):
+                            $level = isset($row['userlevel']) ? intval($row['userlevel']) : 3;
+                            
+                            // Map level numbers to descriptive role names and styles
+                            switch($level) {
+                                case 1:
+                                    $roleName = 'Administrator';
+                                    $badgeStyle = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+                                    break;
+                                case 2:
+                                    $roleName = 'Cashier';
+                                    $badgeStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                                    break;
+                                case 3:
+                                default:
+                                    $roleName = 'Staff / Manager';
+                                    $badgeStyle = 'bg-slate-700/50 text-slate-300 border-slate-600';
+                                    break;
+                            }
                         ?>
                         <tr class="hover:bg-slate-700/30 transition duration-150">
-                            <td class="px-6 py-4 font-mono text-slate-400 text-xs"><?php echo htmlspecialchars($row['id']); ?></td>
+                            <td class="px-6 py-4 font-mono text-slate-400 text-xs">#<?php echo htmlspecialchars($row['id']); ?></td>
                             <td class="px-6 py-4 font-medium text-white"><?php echo htmlspecialchars($row['username']); ?></td>
                             <td class="px-6 py-4 font-mono text-slate-400">••••••••</td>
                             <td class="px-6 py-4"><?php echo htmlspecialchars($row['name']); ?></td>
+                            <td class="px-6 py-4">
+                                <span class="px-2.5 py-1 text-xs font-semibold rounded-lg border <?php echo $badgeStyle; ?>">
+                                    <?php echo htmlspecialchars($roleName); ?> (Level <?php echo $level; ?>)
+                                </span>
+                            </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="inline-flex items-center gap-2">
                                     <a rel="facebox" href="edituser.php?id=<?php echo $row['id']; ?>" class="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition" title="Edit User">
@@ -153,30 +182,12 @@ while($row = mysqli_fetch_array($result)) {
         </div>
     </main>
 
+    <footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-500 mt-8">
+        Water Billing System &copy; <?php echo date('Y'); ?>
+    </footer>
+
     <script>
         lucide.createIcons();
-    </script>
-
-    <script type="text/javascript">
-    $(function() {
-        $(".delbutton").click(function(){
-            var element = $(this);
-            var del_id = element.attr("id");
-            var info = 'id=' + del_id;
-            if(confirm("Sure you want to delete this update? There is NO undo!")) {
-                $.ajax({
-                    type: "GET",
-                    url: "delete.php",
-                    data: info,
-                    success: function(){
-                        element.parents(".record").animate({ backgroundColor: "#fbc7c7" }, "fast")
-                        .animate({ opacity: "hide" }, "slow");
-                    }
-                });
-            }
-            return false;
-        });
-    });
     </script>
 </body>
 </html>

@@ -12,6 +12,7 @@ $owner_id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 
 $id = $lname = $fname = $mi = $address = $contact = "";
 $previous = 0;
+$default_price = 10; // Fixed default price per m³
 
 if ($owner_id > 0) {
     // 1. Fetch Owner Information
@@ -130,17 +131,17 @@ if ($owner_id > 0) {
             </div>
         </div>
 
-        <!-- Unit Price -->
+        <!-- Unit Price (Now Read-only) -->
         <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">Unit Price per m³</label>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Price per m³</label>
             <div class="relative flex items-center">
                 <input type="number" 
                        step="any" 
                        name="price" 
-                       value="10" 
-                       required 
-                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition pr-16 font-mono" />
-                <span class="absolute right-3.5 text-xs text-slate-400 font-semibold">Tshs</span>
+                       value="<?php echo htmlspecialchars($default_price); ?>" 
+                       readonly 
+                       class="w-full bg-slate-900/80 border border-slate-700 text-slate-400 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none cursor-not-allowed pr-16 font-mono" />
+                <span class="absolute right-3.5 text-xs text-slate-500 font-semibold">Tshs</span>
             </div>
         </div>
 

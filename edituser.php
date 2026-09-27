@@ -16,18 +16,20 @@ include_once 'db.php';
 $user_id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 
 $id = $username = $name = "";
+$userlevel = 3; // Default fallback
 
 if ($user_id > 0) {
-    // Fetch user details safely
-    $stmt = mysqli_prepare($conn, "SELECT id, username, name FROM user WHERE id = ?");
+    // Fetch user details including userlevel safely
+    $stmt = mysqli_prepare($conn, "SELECT id, username, name, userlevel FROM user WHERE id = ?");
     mysqli_stmt_bind_param($stmt, "i", $user_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
     if ($test = mysqli_fetch_assoc($result)) {
-        $id       = $test['id'];
-        $username = $test['username'];
-        $name     = $test['name'];
+        $id        = $test['id'];
+        $username  = $test['username'];
+        $name      = $test['name'];
+        $userlevel = isset($test['userlevel']) ? intval($test['userlevel']) : 3;
     } else {
         die("<div class='p-4 text-red-400 bg-slate-900 rounded-xl'>Error: User data not found.</div>");
     }
@@ -67,6 +69,18 @@ if ($user_id > 0) {
             </label>
             <input type="text" name="name" value="<?php echo htmlspecialchars($name); ?>" required 
                    class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition" />
+        </div>
+
+        <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                User Role / Level
+            </label>
+            <select name="userlevel" required
+                    class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                <option value="3" <?php echo ($userlevel === 3) ? 'selected' : ''; ?>>Staff / Manager (Level 3)</option>
+                <option value="2" <?php echo ($userlevel === 2) ? 'selected' : ''; ?>>Cashier (Level 2)</option>
+                <option value="1" <?php echo ($userlevel === 1) ? 'selected' : ''; ?>>Administrator (Level 1)</option>
+            </select>
         </div>
 
         <div>

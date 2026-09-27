@@ -16,16 +16,26 @@ $session = $_SESSION['id'];
 // Database connection
 include_once 'db.php';
 
-// Get logged-in user's name securely
-$sessionname = "";
+// Get logged-in user's name and userlevel securely
+$sessionname = "User";
+$home_link = "dashboard.php"; // Default fallback
+$userlevel = 3; // Default fallback level
 
-if ($stmt = mysqli_prepare($conn, "SELECT name FROM user WHERE id = ?")) {
+if ($stmt = mysqli_prepare($conn, "SELECT name, userlevel FROM user WHERE id = ?")) {
     mysqli_stmt_bind_param($stmt, "i", $session);
     mysqli_stmt_execute($stmt);
     $resultUser = mysqli_stmt_get_result($stmt);
 
     if ($row = mysqli_fetch_assoc($resultUser)) {
-        $sessionname = $row['name'];
+        $sessionname = $row['name'] ?? 'User';
+        $userlevel = isset($row['userlevel']) ? intval($row['userlevel']) : 3;
+        
+        // Set dynamic home destination based on privilege level
+        if ($userlevel === 1) {
+            $home_link = "dashboard.php"; // Admin Dashboard
+        } else {
+            $home_link = "staff_dashboard.php"; // Staff / Cashier Dashboard
+        }
     }
     mysqli_stmt_close($stmt);
 }
@@ -90,17 +100,24 @@ if ($stmt = mysqli_prepare($conn, "SELECT name FROM user WHERE id = ?")) {
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        <!-- Navigation Tabs -->
+        <!-- Navigation Tabs (Role-Based Display) -->
         <nav class="flex space-x-2 border-b border-slate-800 pb-4 mb-8">
-            <a href="billing.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
+            <a href="<?php echo htmlspecialchars($home_link); ?>" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Home
             </a>
+            
+            <?php if ($userlevel === 1 || $userlevel === 2): ?>
             <a href="bill.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg> Billing
             </a>
+            <?php endif; ?>
+
+            <?php if ($userlevel === 1): ?>
             <a href="user.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Users
             </a>
+            <?php endif; ?>
+
             <a href="clients.php" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl shadow-md shadow-blue-600/20">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg> Clients
             </a>
@@ -119,9 +136,9 @@ if ($stmt = mysqli_prepare($conn, "SELECT name FROM user WHERE id = ?")) {
                 </div>
                 
                 <div class="flex items-center gap-3">
-                    <button type="button" onclick="document.getElementById('clientModal').classList.remove('hidden')" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm transition">
+                    <a rel="facebox" href="addclient.php" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm transition">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Add Client
-                    </button>
+                    </a>
                     <a href="deleteclient.php" onclick="return confirm('Are you sure you want to delete all clients?');" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 rounded-lg transition">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg> Delete All
                     </a>
@@ -191,28 +208,6 @@ if ($stmt = mysqli_prepare($conn, "SELECT name FROM user WHERE id = ?")) {
 
         </div>
     </main>
-
-    <!-- Client Modal Overlay -->
-    <div id="clientModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-        <div class="bg-slate-800 border border-slate-700/80 w-full max-w-lg rounded-2xl shadow-2xl p-6 text-slate-100">
-            <div class="flex items-center justify-between border-b border-slate-700/60 pb-4 mb-4">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Add New Client
-                </h3>
-                <button type="button" onclick="document.getElementById('clientModal').classList.add('hidden')" class="text-slate-400 hover:text-white transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
-                </button>
-            </div>
-            <div class="modal-body text-slate-200">
-                <?php include "addclient.php"; ?>
-            </div>
-            <div class="mt-6 flex justify-end">
-                <button type="button" onclick="document.getElementById('clientModal').classList.add('hidden')" class="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Scripts Initialization -->
     <script type="text/javascript">

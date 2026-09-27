@@ -16,7 +16,7 @@ include_once 'db.php';
         </button>
     </div>
 
-    <!-- Form -->
+    <!-- Form submits to useradd.php -->
     <form method="post" action="useradd.php" class="space-y-4">
         <div>
             <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -40,6 +40,18 @@ include_once 'db.php';
             </label>
             <input type="text" name="name" required placeholder="e.g. John Doe"
                    class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition" />
+        </div>
+
+        <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                User Role / Level
+            </label>
+            <select name="userlevel" required
+                    class="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                <option value="3" selected>Staff / Manager (Level 3)</option>
+                <option value="2">Cashier (Level 2)</option>
+                <option value="1">Administrator (Level 1)</option>
+            </select>
         </div>
 
         <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-700/60 mt-6">

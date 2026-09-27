@@ -73,7 +73,7 @@ include 'db.php';
                     <h3 class="text-xl font-bold text-white mb-2">Billing & Payments</h3>
                     <p class="text-slate-400 text-sm leading-relaxed mb-6">View active bills, process meter readings, generate invoices, and issue receipts.</p>
                 </div>
-                <a href="billing.php" class="w-full inline-flex justify-center items-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm text-white bg-cyan-600 hover:bg-cyan-500 shadow-md shadow-cyan-600/20 transition duration-200">
+                <a href="bill.php" class="w-full inline-flex justify-center items-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm text-white bg-cyan-600 hover:bg-cyan-500 shadow-md shadow-cyan-600/20 transition duration-200">
                     <span>Go to Billing</span>
                     <i data-lucide="arrow-right" class="w-4 h-4"></i>
                 </a>
