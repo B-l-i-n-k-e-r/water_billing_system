@@ -1,3 +1,4 @@
+```php
 <?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -12,36 +13,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
     $username  = trim($_POST['username']);
     $password  = trim($_POST['password']);
     $name      = trim($_POST['name']);
+    $email     = trim($_POST['email']);
     $userlevel = isset($_POST['userlevel']) ? intval($_POST['userlevel']) : 3;
 
-    if (!empty($username) && !empty($password) && !empty($name)) {
+    // Validate required fields
+    if (!empty($username) && !empty($password) && !empty($name) && !empty($email)) {
+
+        // Validate email format
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $_SESSION['error_msg'] = "Please enter a valid email address.";
+            mysqli_close($conn);
+            header("Location: user.php");
+            exit();
+        }
 
         // Hash password securely
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-        // Insert into database with userlevel
-        $stmt = mysqli_prepare($conn, "INSERT INTO user (username, password, name, userlevel) VALUES (?, ?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, "sssi", $username, $hashed_password, $name, $userlevel);
+        // Insert user including email
+        $stmt = mysqli_prepare(
+            $conn,
+            "INSERT INTO user (username, password, name, email, userlevel)
+             VALUES (?, ?, ?, ?, ?)"
+        );
 
-        if (mysqli_stmt_execute($stmt)) {
-            $_SESSION['success_msg'] = "User added successfully!";
+        if ($stmt) {
+
+            mysqli_stmt_bind_param(
+                $stmt,
+                "ssssi",
+                $username,
+                $hashed_password,
+                $name,
+                $email,
+                $userlevel
+            );
+
+            if (mysqli_stmt_execute($stmt)) {
+                $_SESSION['success_msg'] = "User added successfully!";
+            } else {
+                $_SESSION['error_msg'] = "Error adding user: " . mysqli_stmt_error($stmt);
+            }
+
+            mysqli_stmt_close($stmt);
+
         } else {
-            $_SESSION['error_msg'] = "Error adding user: " . mysqli_error($conn);
+            $_SESSION['error_msg'] = "Database error: " . mysqli_error($conn);
         }
-        mysqli_stmt_close($stmt);
 
     } else {
         $_SESSION['error_msg'] = "Please fill in all required fields.";
     }
 
     mysqli_close($conn);
+
     header("Location: user.php");
     exit();
+
 } else {
+
     if (isset($conn)) {
         mysqli_close($conn);
     }
+
     header("Location: user.php");
     exit();
 }
 ?>
+```

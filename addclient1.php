@@ -1,3 +1,4 @@
+
 <?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -16,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
     $mi          = trim($_POST['mi'] ?? '');
     $address     = trim($_POST['address'] ?? '');
     $contact     = trim($_POST['contact'] ?? '');
+    $email       = trim($_POST['email'] ?? '');
     $meterReader = floatval($_POST['meterReader'] ?? 0);
 
     // Basic validation
@@ -30,11 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
 
     try {
         // 1. Insert new client into 'owners' table
-        $stmt1 = mysqli_prepare($conn, "INSERT INTO owners (lname, fname, mi, address, contact) VALUES (?, ?, ?, ?, ?)");
+        $stmt1 = mysqli_prepare($conn, "INSERT INTO owners (lname, fname, mi, address, contact, email) VALUES (?, ?, ?, ?, ?, ?)");
         if (!$stmt1) {
             throw new Exception("Prepare failed (owners): " . mysqli_error($conn));
         }
-        mysqli_stmt_bind_param($stmt1, "sssss", $lname, $fname, $mi, $address, $contact);
+        mysqli_stmt_bind_param($stmt1, "ssssss", $lname, $fname, $mi, $address, $contact, $email);
         
         if (!mysqli_stmt_execute($stmt1)) {
             throw new Exception("Execute failed (owners): " . mysqli_stmt_error($stmt1));
@@ -82,3 +84,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
     exit();
 }
 ?>
+```

@@ -120,12 +120,6 @@ while($row = mysqli_fetch_array($result)) {
                     </h2>
                     <p class="text-slate-400 text-xs mt-1">Select an account to run billing actions or view active history</p>
                 </div>
-                <div>
-                    <a rel="facebox" href="addbill.php" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition shadow-md shadow-blue-600/20">
-                        <i data-lucide="plus" class="w-4 h-4"></i>
-                        <span>Add Bill</span>
-                    </a>
-                </div>
             </div>
 
             <div class="overflow-x-auto">

@@ -1,3 +1,4 @@
+```php
 <?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -20,38 +21,117 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
     $id        = intval($_POST['id']);
     $username  = trim($_POST['username']);
     $name      = trim($_POST['name']);
+    $email     = trim($_POST['email']);
     $password  = trim($_POST['password']);
     $userlevel = isset($_POST['userlevel']) ? intval($_POST['userlevel']) : 3;
 
-    if ($id > 0) {
-        if (!empty($password)) {
-            // Update username, name, password, and userlevel
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = mysqli_prepare($conn, "UPDATE user SET username = ?, name = ?, password = ?, userlevel = ? WHERE id = ?");
-            mysqli_stmt_bind_param($stmt, "sssii", $username, $name, $hashed_password, $userlevel, $id);
-        } else {
-            // Update username, name, and userlevel only
-            $stmt = mysqli_prepare($conn, "UPDATE user SET username = ?, name = ?, userlevel = ? WHERE id = ?");
-            mysqli_stmt_bind_param($stmt, "ssii", $username, $name, $userlevel, $id);
-        }
+    // Check required fields
+    if ($id <= 0 || empty($username) || empty($name) || empty($email)) {
+        $_SESSION['error_msg'] = "Please fill in all required fields.";
+        header("Location: user.php");
+        exit();
+    }
 
-        $success = mysqli_stmt_execute($stmt);
-        
-        if ($success) {
-            $_SESSION['success_msg'] = "User details updated successfully!";
-        } else {
-            $_SESSION['error_msg'] = "Error updating user details: " . mysqli_error($conn);
+    // Validate email
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $_SESSION['error_msg'] = "Please enter a valid email address.";
+        header("Location: user.php");
+        exit();
+    }
+
+    /*
+     * If a new password was provided,
+     * update username, name, email, password and userlevel.
+     */
+    if (!empty($password)) {
+
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+        $stmt = mysqli_prepare(
+            $conn,
+            "UPDATE user
+             SET username = ?, name = ?, email = ?, password = ?, userlevel = ?
+             WHERE id = ?"
+        );
+
+        if ($stmt) {
+
+            mysqli_stmt_bind_param(
+                $stmt,
+                "ssssii",
+                $username,
+                $name,
+                $email,
+                $hashed_password,
+                $userlevel,
+                $id
+            );
+
         }
-        mysqli_stmt_close($stmt);
 
     } else {
-        $_SESSION['error_msg'] = "Invalid User ID.";
+
+        /*
+         * No new password provided.
+         * Keep the existing password unchanged.
+         */
+        $stmt = mysqli_prepare(
+            $conn,
+            "UPDATE user
+             SET username = ?, name = ?, email = ?, userlevel = ?
+             WHERE id = ?"
+        );
+
+        if ($stmt) {
+
+            mysqli_stmt_bind_param(
+                $stmt,
+                "sssii",
+                $username,
+                $name,
+                $email,
+                $userlevel,
+                $id
+            );
+
+        }
     }
+
+    // Check if statement was prepared successfully
+    if (!$stmt) {
+
+        $_SESSION['error_msg'] =
+            "Database error: " . mysqli_error($conn);
+
+    } else {
+
+        // Execute update
+        $success = mysqli_stmt_execute($stmt);
+
+        if ($success) {
+
+            $_SESSION['success_msg'] =
+                "User details updated successfully!";
+
+        } else {
+
+            $_SESSION['error_msg'] =
+                "Error updating user details: " .
+                mysqli_stmt_error($stmt);
+        }
+
+        mysqli_stmt_close($stmt);
+    }
+
+    mysqli_close($conn);
 
     header("Location: user.php");
     exit();
+
 } else {
+
     header("Location: user.php");
     exit();
 }
 ?>
+```

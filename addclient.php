@@ -1,3 +1,4 @@
+```php
 <?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -88,6 +89,16 @@ include_once 'db.php';
             </div>
         </div>
 
+        <!-- Email -->
+        <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Email Address <span class="text-rose-400">*</span></label>
+            <input type="email" 
+                   name="email" 
+                   required 
+                   placeholder="john@example.com" 
+                   class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" />
+        </div>
+
         <!-- Address -->
         <div>
             <label class="block text-xs font-medium text-slate-300 mb-1.5">Address <span class="text-rose-400">*</span></label>
@@ -132,3 +143,4 @@ include_once 'db.php';
 
 </body>
 </html>
+```

@@ -1,3 +1,4 @@
+```php
 <?php
 session_start();
 
@@ -21,11 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
     $mi      = trim($_POST['mi']);
     $address = trim($_POST['address']);
     $contact = trim($_POST['contact']);
+    $email   = trim($_POST['email']);
 
     if ($id > 0) {
         // 1. Update owner record using prepared statements
-        $stmt1 = mysqli_prepare($conn, "UPDATE owners SET lname = ?, fname = ?, mi = ?, address = ?, contact = ? WHERE id = ?");
-        mysqli_stmt_bind_param($stmt1, "sssssi", $lname, $fname, $mi, $address, $contact, $id);
+        $stmt1 = mysqli_prepare($conn, "UPDATE owners SET lname = ?, fname = ?, mi = ?, address = ?, contact = ?, email = ? WHERE id = ?");
+        mysqli_stmt_bind_param($stmt1, "ssssssi", $lname, $fname, $mi, $address, $contact, $email, $id);
         $success = mysqli_stmt_execute($stmt1);
         mysqli_stmt_close($stmt1);
 
@@ -51,3 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
     exit();
 }
 ?>
+```
+
+This adds only `$email` and includes `email = ?` in the existing `UPDATE owners` query.

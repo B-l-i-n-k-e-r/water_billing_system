@@ -1,3 +1,4 @@
+```php
 <?php
 session_start();
 
@@ -13,7 +14,7 @@ include_once 'db.php';
 
 $owner_id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 
-$id = $lname = $fname = $mi = $address = $contact = "";
+$id = $lname = $fname = $mi = $address = $contact = $email = "";
 
 if ($owner_id > 0) {
     $stmt = mysqli_prepare($conn, "SELECT * FROM owners WHERE id = ?");
@@ -28,6 +29,7 @@ if ($owner_id > 0) {
         $mi      = $test['mi'];
         $address = $test['address'];
         $contact = $test['contact'];
+        $email   = isset($test['email']) ? $test['email'] : "";
     } else {
         die("Error: Data not found.");
     }
@@ -90,6 +92,12 @@ if ($owner_id > 0) {
                    class="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 transition" />
         </div>
 
+        <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Email Address</label>
+            <input type="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required 
+                   class="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 transition" />
+        </div>
+
         <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-700/60 mt-6">
             <a href="clients.php" 
                class="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition">
@@ -105,3 +113,4 @@ if ($owner_id > 0) {
 
 </body>
 </html>
+```
