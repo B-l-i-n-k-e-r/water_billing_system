@@ -40,7 +40,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <?php else: ?>
                     <a href="index.php" class="text-sm font-medium text-gray-600 hover:text-ncwsc-blue">LOGIN</a>
                 <?php endif; ?>
-                <a href="blinker09.co.ke" target="_blank" class="text-sm font-medium text-gray-600 hover:text-ncwsc-blue">MAIN WEBSITE</a>
+                <a href="https://blinker09.co.ke" target="_blank" class="text-sm font-medium text-gray-600 hover:text-ncwsc-blue">MAIN WEBSITE</a>
             </div>
         </div>
     </div>
@@ -50,15 +50,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <?php if ($isLoggedIn): ?>
 <nav class="bg-white border-b border-gray-200 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex space-x-8">
-            <a href="apply.php" class="py-4 px-1 border-b-2 <?php echo $current_page == 'apply.php' ? 'border-ncwsc-blue text-ncwsc-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> text-sm font-medium">
+        <div class="flex space-x-6 overflow-x-auto">
+            <a href="apply.php" class="py-4 px-1 border-b-2 whitespace-nowrap <?php echo $current_page == 'apply.php' ? 'border-ncwsc-blue text-ncwsc-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> text-sm font-medium">
                 APPLY WATER OR SEWER
             </a>
-            <a href="upload_application.php" class="py-4 px-1 border-b-2 <?php echo $current_page == 'upload_application.php' ? 'border-ncwsc-blue text-ncwsc-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> text-sm font-medium">
+            <a href="upload_application.php" class="py-4 px-1 border-b-2 whitespace-nowrap <?php echo $current_page == 'upload_application.php' ? 'border-ncwsc-blue text-ncwsc-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> text-sm font-medium">
                 UPLOAD APPLICATION
             </a>
-            <a href="track_application.php" class="py-4 px-1 border-b-2 <?php echo $current_page == 'track_application.php' ? 'border-ncwsc-blue text-ncwsc-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> text-sm font-medium">
+            <a href="track_application.php" class="py-4 px-1 border-b-2 whitespace-nowrap <?php echo $current_page == 'track_application.php' ? 'border-ncwsc-blue text-ncwsc-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> text-sm font-medium">
                 TRACK APPLICATION
+            </a>
+            <a href="my_sewer_requests.php" class="py-4 px-1 border-b-2 whitespace-nowrap <?php echo $current_page == 'my_sewer_requests.php' ? 'border-ncwsc-blue text-ncwsc-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> text-sm font-medium">
+                MY SEWER REQUESTS
+            </a>
+            <a href="my_exhauster_permits.php" class="py-4 px-1 border-b-2 whitespace-nowrap <?php echo $current_page == 'my_exhauster_permits.php' ? 'border-ncwsc-blue text-ncwsc-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> text-sm font-medium">
+                MY EXHAUSTER PERMITS
             </a>
         </div>
     </div>

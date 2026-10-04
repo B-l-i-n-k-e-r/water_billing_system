@@ -2,240 +2,106 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
 include_once 'auth.php';
-checkLevel([1, 2]); // Restricted to Admin & Staff
-
-$logged_in_user_id = $_SESSION['id'] ?? $_SESSION['SESS_MEMBER_ID'] ?? null;
-
-if (!$logged_in_user_id) {
-    header("Location: index.php");
-    exit();
-}
-
+checkLevel([1, 2]);
 include_once 'db.php';
+include_once 'tariff.php';   // ← ADDED: gives us kes() helper
+include 'admin_header.php';
 
-// Sanitize inputs
-$id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
+$search = trim($_GET['q'] ?? '');
 
-$prev = $owners_id = $pres = $price = $totalcons = $bill = $date = "";
-$lname = $fname = $mi = $address = $contact = "";
-$sessionname = "";
+$sql = "SELECT t.*, o.fname, o.lname, o.contact
+        FROM transactions t
+        LEFT JOIN owners o ON CONCAT('OWNER-', o.id) = t.account_number
+        WHERE t.amount < 0";  // payments are negative
 
-if ($id > 0) {
-    // 1. Fetch Bill Information
-    $stmt = mysqli_prepare($conn, "SELECT * FROM bill WHERE id = ?");
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
+$params = [];
+$types = '';
+if ($search !== '') {
+    $sql .= " AND (o.fname LIKE ? OR o.lname LIKE ? OR o.contact LIKE ? OR t.description LIKE ?)";
+    $like = "%$search%";
+    $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
+    $types .= 'ssss';
+}
+$sql .= " ORDER BY t.transaction_date DESC, t.id DESC LIMIT 200";
 
-    if ($row = mysqli_fetch_assoc($result)) {
-        $prev      = floatval($row['prev']);
-        $owners_id = intval($row['owners_id']);
-        $pres      = floatval($row['pres']);
-        
-        $price     = abs(floatval($row['price']));
-        $totalcons = abs($pres - $prev);
-        $bill      = $totalcons * $price;
-        $date      = $row['date'];
+$stmt = mysqli_prepare($conn, $sql);
+if (!$stmt) {
+    die("SQL error: " . mysqli_error($conn));
+}
+if ($params) {
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+}
+mysqli_stmt_execute($stmt);
+$res = mysqli_stmt_get_result($stmt);
+$payments = [];
+while ($row = mysqli_fetch_assoc($res)) $payments[] = $row;
+mysqli_stmt_close($stmt);
+
+$totalToday = 0;
+$today = date('Y-m-d');
+foreach ($payments as $p) {
+    if ($p['transaction_date'] === $today) {
+        $totalToday += abs((float) $p['amount']);
     }
-    mysqli_stmt_close($stmt);
-
-    // 2. Fetch Owner Information
-    if ($owners_id > 0) {
-        $stmt_owner = mysqli_prepare($conn, "SELECT * FROM owners WHERE id = ?");
-        mysqli_stmt_bind_param($stmt_owner, "i", $owners_id);
-        mysqli_stmt_execute($stmt_owner);
-        $result_owner = mysqli_stmt_get_result($stmt_owner);
-
-        if ($test = mysqli_fetch_assoc($result_owner)) {
-            $lname   = $test['lname'];
-            $fname   = $test['fname'];
-            $mi      = $test['mi'];
-            $address = $test['address'];
-            $contact = $test['contact'];
-        }
-        mysqli_stmt_close($stmt_owner);
-    }
-
-    // 3. Fetch User / Cashier Session Name
-    $session = intval($logged_in_user_id);
-    $stmt_user = mysqli_prepare($conn, "SELECT name FROM user WHERE id = ?");
-    mysqli_stmt_bind_param($stmt_user, "i", $session);
-    mysqli_stmt_execute($stmt_user);
-    $result_user = mysqli_stmt_get_result($stmt_user);
-
-    if ($row_user = mysqli_fetch_assoc($result_user)) {
-        $sessionname = $row_user['name'];
-    }
-    mysqli_stmt_close($stmt_user);
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Water Bill Receipt</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            #printableReceipt, #printableReceipt * {
-                visibility: visible;
-            }
-            #printableReceipt {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                margin: 0;
-                padding: 15px;
-                background: #ffffff !important;
-                color: #000000 !important;
-                border: none !important;
-                box-shadow: none !important;
-            }
-            /* Force all text elements inside receipt to print dark/black */
-            #printableReceipt h4, 
-            #printableReceipt p, 
-            #printableReceipt span, 
-            #printableReceipt div {
-                color: #000000 !important;
-            }
-            /* Convert dark borders and backgrounds into clean print lines */
-            #printableReceipt .border-dashed {
-                border-color: #000000 !important;
-            }
-            #printableReceipt .bg-slate-900,
-            #printableReceipt .bg-slate-950 {
-                background-color: transparent !important;
-                border: 1px solid #000000 !important;
-            }
-        }
-    </style>
-</head>
-<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4">
 
-<div class="p-6 bg-slate-800 text-slate-100 rounded-2xl max-w-lg w-full border border-slate-700 shadow-2xl relative z-50 my-6 mx-auto">
-    <!-- Header Modal Bar -->
-    <div class="flex items-center justify-between border-b border-slate-700 pb-4 mb-6">
-        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            Payment Receipt
-        </h3>
-        <button type="button" 
-                onclick="if (typeof jQuery !== 'undefined' && jQuery('#facebox').is(':visible')) { jQuery(document).trigger('close.facebox'); } else if (window.history.length > 1) { window.history.back(); } else { window.location.href='paybill.php'; }" 
-                class="text-slate-400 hover:text-white hover:bg-slate-700/50 p-1.5 rounded-lg transition">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
-        </button>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Payments</h1>
+            <p class="text-sm text-gray-500 mt-1">
+                Received today: <strong class="text-gray-800"><?php echo kes($totalToday); ?></strong>
+                &nbsp;·&nbsp; Total shown: <strong class="text-gray-800"><?php echo count($payments); ?></strong>
+            </p>
+        </div>
+        <a href="paybill.php" class="btn-green text-white font-semibold py-2 px-6 rounded-md inline-flex items-center gap-2 w-max">
+            <i data-lucide="plus" class="w-4 h-4"></i> Record Payment
+        </a>
     </div>
 
-    <?php if ($id > 0 && !empty($owners_id)): ?>
-        <!-- Thermal / Classic Receipt Container -->
-        <div id="printableReceipt" class="p-6 bg-slate-950 text-slate-200 border border-slate-800 rounded-xl font-mono text-xs space-y-4 shadow-inner">
-            
-            <!-- Receipt Header -->
-            <div class="text-center space-y-1 pb-3 border-b border-dashed border-slate-700">
-                <h4 class="text-sm font-bold tracking-widest text-white uppercase">WATER BILLING SYSTEM</h4>
-                <p class="text-[11px] text-slate-400">ESPSN - ESSP</p>
-                <p class="text-[11px] text-slate-400">Phone: +255 (0) 654 235</p>
-            </div>
+    <form method="GET" class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>"
+               placeholder="Search by name, phone, or description"
+               class="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none sm:col-span-2">
+        <button type="submit" class="btn-blue text-white font-semibold py-2 px-4 rounded-md">Search</button>
+    </form>
 
-            <!-- Receipt Meta Info -->
-            <div class="space-y-1 pb-3 border-b border-dashed border-slate-700">
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Receipt No:</span>
-                    <span class="font-bold text-blue-400">SMART/00<?php echo htmlspecialchars($id); ?></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Date/Time:</span>
-                    <span class="text-slate-300"><?php echo htmlspecialchars($date); ?></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Cashier:</span>
-                    <span class="text-slate-300"><?php echo htmlspecialchars($sessionname); ?></span>
-                </div>
-            </div>
-
-            <!-- Client Info -->
-            <div class="space-y-1 pb-3 border-b border-dashed border-slate-700">
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Client Name:</span>
-                    <span class="font-bold text-white"><?php echo htmlspecialchars($fname . ' ' . $lname); ?></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Address:</span>
-                    <span class="text-slate-300"><?php echo htmlspecialchars($address); ?></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Contact:</span>
-                    <span class="text-slate-300"><?php echo htmlspecialchars($contact); ?></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Meter Number:</span>
-                    <span class="text-slate-300"><?php echo htmlspecialchars($mi); ?></span>
-                </div>
-            </div>
-
-            <!-- Consumption Calculation Breakdown -->
-            <div class="space-y-1.5 pb-3 border-b border-dashed border-slate-700">
-                <div class="flex justify-between text-slate-400">
-                    <span>Previous Reading:</span>
-                    <span><?php echo htmlspecialchars(number_format($prev, 2)); ?></span>
-                </div>
-                <div class="flex justify-between text-slate-400">
-                    <span>Present Reading:</span>
-                    <span><?php echo htmlspecialchars(number_format($pres, 2)); ?></span>
-                </div>
-                <div class="flex justify-between text-slate-300 font-semibold">
-                    <span>Total Consumption:</span>
-                    <span class="text-amber-400"><?php echo htmlspecialchars(number_format($totalcons, 2)); ?></span>
-                </div>
-                <div class="flex justify-between text-slate-400">
-                    <span>Price / Unit:</span>
-                    <span><?php echo htmlspecialchars(number_format($price, 2)); ?></span>
-                </div>
-            </div>
-
-            <!-- Total Amount Due -->
-            <div class="py-2 bg-slate-900/80 px-3 rounded-lg border border-slate-800 flex justify-between items-center text-sm font-bold">
-                <span class="text-emerald-400 uppercase tracking-wider text-xs">Total Amount:</span>
-                <span class="text-emerald-400 text-base"><?php echo htmlspecialchars(number_format($bill, 2)); ?> Tshs</span>
-            </div>
-
-            <!-- Receipt Footer Message -->
-            <div class="text-center pt-2 text-[10px] text-slate-500 uppercase tracking-wider">
-                <p>*** Thank You For Your Payment ***</p>
-                <p>Please keep this receipt for your records</p>
-            </div>
-
+    <div class="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-600 text-white">
+                    <tr>
+                        <th class="p-3">TXN #</th>
+                        <th class="p-3">DATE</th>
+                        <th class="p-3">CUSTOMER</th>
+                        <th class="p-3">DESCRIPTION</th>
+                        <th class="p-3 text-right">AMOUNT</th>
+                        <th class="p-3 text-right">BALANCE AFTER</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($payments)): ?>
+                        <tr><td colspan="6" class="p-8 text-center text-gray-500">
+                            No payments recorded yet.
+                            <a href="paybill.php" class="text-ncwsc-blue underline ml-1">Record the first one</a>.
+                        </td></tr>
+                    <?php else: foreach ($payments as $p): ?>
+                        <tr class="border-b border-gray-200 hover:bg-gray-50">
+                            <td class="p-3 font-semibold text-gray-800">#<?php echo intval($p['id']); ?></td>
+                            <td class="p-3"><?php echo htmlspecialchars($p['transaction_date']); ?></td>
+                            <td class="p-3"><?php echo htmlspecialchars(trim(($p['fname'] ?? '') . ' ' . ($p['lname'] ?? '')) ?: '—'); ?></td>
+                            <td class="p-3"><?php echo htmlspecialchars($p['description']); ?></td>
+                            <td class="p-3 text-right font-semibold text-green-700"><?php echo number_format(abs((float)$p['amount']), 2); ?></td>
+                            <td class="p-3 text-right"><?php echo number_format((float)($p['balance_after'] ?? 0), 2); ?></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
         </div>
-
-        <!-- Action Footer -->
-        <div class="pt-4 flex items-center justify-between border-t border-slate-700/60 mt-6">
-            <button type="button" 
-                    onclick="if (typeof jQuery !== 'undefined' && jQuery('#facebox').is(':visible')) { jQuery(document).trigger('close.facebox'); } else if (window.history.length > 1) { window.history.back(); } else { window.location.href='paybill.php'; }" 
-                    class="px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-xl transition">
-                Close
-            </button>
-            <button type="button" onclick="window.print()" 
-                    class="px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition shadow-md shadow-blue-600/20 active:scale-[0.98] flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                Print Receipt
-            </button>
-        </div>
-
-    <?php else: ?>
-        <div class="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl text-sm flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-            Invalid Invoice or Owner Record.
-        </div>
-    <?php endif; ?>
+    </div>
 </div>
 
-</body>
-</html>
+<?php include 'footer.php'; ?>

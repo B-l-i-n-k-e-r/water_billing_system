@@ -5,6 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 include_once 'db.php';
 include_once 'functions.php';
+require_once 'notify.php';
 
 if (!isset($_SESSION['id'])) {
     header("Location: index.php");
@@ -98,10 +99,15 @@ if ($step === 11) {
     );
 
     if (mysqli_stmt_execute($stmt)) {
-        mysqli_stmt_close($stmt);
-        unset($_SESSION['wizard_data']);
-        header("Location: track_application.php?success=1");
-        exit();
+    $app_id = mysqli_insert_id($conn);
+    mysqli_stmt_close($stmt);
+    unset($_SESSION['wizard_data']);
+
+    // Send confirmation email
+    notifyApplicationReceived($conn, $app_id);
+
+    header("Location: track_application.php?success=1");
+    exit();
     } else {
         $err = mysqli_stmt_error($stmt);
         mysqli_stmt_close($stmt);

@@ -1,0 +1,38 @@
+# Deny direct access to sensitive files
+<FilesMatch "^(config\.php|mailer\.php|notify\.php|otp_helper\.php|functions\.php|db\.php|flash\.php|auth\.php)$">
+    Require all denied
+</FilesMatch>
+
+# Deny access to composer files
+<FilesMatch "^(composer\.(json|lock))$">
+    Require all denied
+</FilesMatch>
+
+# Deny access to logs and backups
+<FilesMatch "\.(sql|log|bak|ini|sh)$">
+    Require all denied
+</FilesMatch>
+
+# Disable directory listing
+Options -Indexes
+
+# Prevent PHP execution inside uploads/
+<Directory "uploads">
+    php_flag engine off
+    <FilesMatch "\.(php|phtml|php3|php4|php5|pl|py|cgi|asp|sh)$">
+        Require all denied
+    </FilesMatch>
+</Directory>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# Hide PHP version
+<IfModule mod_php.c>
+    php_flag expose_php Off
+</IfModule>

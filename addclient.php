@@ -1,146 +1,95 @@
-```php
 <?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
 include_once 'auth.php';
-checkLevel([1, 2, 3]); // Admin, Cashier, and Manager access
-
+checkLevel([1, 2]);
 include_once 'db.php';
+include 'admin_header.php';
+
+$edit_id = intval($_GET['edit'] ?? 0);
+$client = [
+    'id' => 0,
+    'fname' => '',
+    'lname' => '',
+    'mi' => '',
+    'address' => '',
+    'contact' => '',
+    'email' => '',
+];
+
+if ($edit_id > 0) {
+    $stmt = mysqli_prepare($conn, "SELECT * FROM owners WHERE id = ? LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "i", $edit_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    if ($row = mysqli_fetch_assoc($res)) {
+        $client = $row;
+    }
+    mysqli_stmt_close($stmt);
+}
+
+$isEdit = $client['id'] > 0;
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Client</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
 
-<!-- Modal Container -->
-<div class="p-6 bg-slate-800 text-slate-100 rounded-2xl max-w-lg w-full border border-slate-700 shadow-2xl relative z-50 my-4 mx-auto">
-    
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b border-slate-700 pb-4 mb-5">
-        <div class="flex items-center gap-3">
-            <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-            </div>
-            <div>
-                <h3 class="text-base font-bold text-white leading-tight">Add New Client</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Register client details & initial meter reading</p>
-            </div>
-        </div>
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-        <!-- Close Button -->
-        <button type="button" 
-                onclick="if (typeof jQuery !== 'undefined' && jQuery('#facebox').is(':visible')) { jQuery(document).trigger('close.facebox'); } else if (window.history.length > 1) { window.history.back(); } else { window.location.href='clients.php'; }" 
-                class="text-slate-400 hover:text-white hover:bg-slate-700/50 p-1.5 rounded-lg transition">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
-        </button>
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">
+            <?php echo $isEdit ? 'Edit Client' : 'Add New Client'; ?>
+        </h1>
+        <a href="clients.php" class="text-sm text-gray-500 hover:text-ncwsc-blue">&larr; Back to Clients</a>
     </div>
 
-    <!-- Form -->
-    <form method="post" action="addclient1.php" class="space-y-4">
-        
-        <!-- Name Fields Grid -->
+    <form action="addclient1.php" method="POST" class="bg-white p-8 rounded-lg shadow-md border border-gray-100 space-y-5">
+
+        <input type="hidden" name="id" value="<?php echo intval($client['id']); ?>">
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">First Name:<span class="text-red-500">*</span></label>
+                <input type="text" name="fname" required value="<?php echo htmlspecialchars($client['fname']); ?>"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Middle Initial:</label>
+                <input type="text" name="mi" maxlength="5" value="<?php echo htmlspecialchars($client['mi']); ?>"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Last Name:<span class="text-red-500">*</span></label>
+                <input type="text" name="lname" required value="<?php echo htmlspecialchars($client['lname']); ?>"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Address:<span class="text-red-500">*</span></label>
+            <input type="text" name="address" required value="<?php echo htmlspecialchars($client['address']); ?>"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1.5">First Name <span class="text-rose-400">*</span></label>
-                <input type="text" 
-                       name="fname" 
-                       required 
-                       placeholder="John" 
-                       autofocus
-                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" />
+                <label class="block text-sm font-medium text-gray-700 mb-1">Contact Number:<span class="text-red-500">*</span></label>
+                <input type="text" name="contact" required value="<?php echo htmlspecialchars($client['contact']); ?>"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
             </div>
-
             <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1.5">Last Name <span class="text-rose-400">*</span></label>
-                <input type="text" 
-                       name="lname" 
-                       required 
-                       placeholder="Doe" 
-                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" />
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                <input type="email" name="email" value="<?php echo htmlspecialchars($client['email']); ?>"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
             </div>
         </div>
 
-        <!-- Meter Number & Contact Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1.5">Meter Number <span class="text-rose-400">*</span></label>
-                <input type="text" 
-                       name="mi" 
-                       required 
-                       placeholder="MTR-0001" 
-                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition font-mono" />
-            </div>
-
-            <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1.5">Contact Number <span class="text-rose-400">*</span></label>
-                <input type="text" 
-                       name="contact" 
-                       required 
-                       placeholder="07XXXXXXXX" 
-                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition font-mono" />
-            </div>
-        </div>
-
-        <!-- Email -->
-        <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">Email Address <span class="text-rose-400">*</span></label>
-            <input type="email" 
-                   name="email" 
-                   required 
-                   placeholder="john@example.com" 
-                   class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" />
-        </div>
-
-        <!-- Address -->
-        <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">Address <span class="text-rose-400">*</span></label>
-            <input type="text" 
-                   name="address" 
-                   required 
-                   placeholder="Physical location or house no." 
-                   class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" />
-        </div>
-
-        <!-- Initial Meter Reading -->
-        <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">First Meter Reading <span class="text-rose-400">*</span></label>
-            <div class="relative flex items-center">
-                <input type="number" 
-                       step="any" 
-                       name="meterReader" 
-                       required 
-                       placeholder="0" 
-                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition pr-12 font-mono" />
-                <span class="absolute right-3.5 text-xs text-slate-400 font-semibold">m³</span>
-            </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700/60 mt-6">
-            <button type="button" 
-                    onclick="if (typeof jQuery !== 'undefined' && jQuery('#facebox').is(':visible')) { jQuery(document).trigger('close.facebox'); } else if (window.history.length > 1) { window.history.back(); } else { window.location.href='clients.php'; }" 
-                    class="px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-xl transition w-full sm:w-auto text-center">
-                Cancel
-            </button>
-            
-            <button type="submit" 
-                    name="add" 
-                    class="px-5 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition shadow-md shadow-indigo-600/20 active:scale-[0.98] w-full sm:w-auto text-center flex items-center justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                Add Client
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <a href="clients.php" class="text-gray-500 hover:text-gray-700 font-semibold py-2 px-4">Cancel</a>
+            <button type="submit" class="btn-green text-white font-semibold py-2 px-6 rounded-md transition">
+                <?php echo $isEdit ? 'Update Client' : 'Save Client'; ?>
             </button>
         </div>
+
     </form>
 </div>
 
-</body>
-</html>
-```
+<?php include 'footer.php'; ?>

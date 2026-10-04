@@ -11,11 +11,29 @@ include 'header.php';
 
 <div class="flex items-center justify-center min-h-[70vh] px-4">
     <div class="w-full max-w-md bg-white rounded-lg shadow-lg p-8 border border-gray-100">
-        
+
         <div class="text-center mb-8">
             <h1 class="text-2xl font-bold text-gray-800">NCWSC Online Services</h1>
             <p class="text-sm text-gray-500 mt-2">Please fill in your credentials to login.</p>
         </div>
+
+        <?php if (isset($_GET['verified'])): ?>
+            <div class="mb-6 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+                <strong>Account verified!</strong> You can now log in.
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($_GET['reset'])): ?>
+    <div class="mb-6 p-4 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+        <strong>Password changed!</strong> You can now log in with your new password.
+    </div>
+<?php endif; ?>
+
+        <?php if (isset($_GET['timeout'])): ?>
+            <div class="mb-6 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm">
+                Your session expired due to inactivity. Please log in again.
+            </div>
+        <?php endif; ?>
 
         <?php if (isset($_GET['err'])): ?>
             <div class="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
@@ -24,12 +42,13 @@ include 'header.php';
         <?php endif; ?>
 
         <form action="process.php" method="post" class="space-y-5">
-           <!-- Email / Username -->
-<div>
-    <label class="block text-sm font-medium text-gray-700 mb-1">Email or Username:<span class="text-red-500">*</span></label>
-    <input type="text" name="username" required placeholder="Enter Email or Username"
-           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue focus:border-transparent outline-none transition">
-</div>
+
+            <!-- Email / Username -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email or Username:<span class="text-red-500">*</span></label>
+                <input type="text" name="username" required placeholder="Enter Email or Username"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue focus:border-transparent outline-none transition">
+            </div>
 
             <!-- Password -->
             <div>
@@ -41,7 +60,6 @@ include 'header.php';
             <!-- Forgot Password / Have OTP -->
             <div class="flex flex-col gap-1 text-sm">
                 <a href="forgot_password.php" class="text-ncwsc-blue hover:underline">Forgot Password?</a>
-                <a href="otp.php" class="text-ncwsc-blue hover:underline">Have OTP?</a>
             </div>
 
             <!-- Buttons -->

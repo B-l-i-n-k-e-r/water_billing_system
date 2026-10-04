@@ -2,118 +2,147 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
 include_once 'auth.php';
-checkLevel([1, 2]); // Restricted to Admin & Staff
+checkLevel([1, 2]);
+include_once 'db.php';
+include_once 'tariff.php';
+include 'admin_header.php';
 
-if (!isset($_SESSION['id']) && !isset($_SESSION['SESS_MEMBER_ID'])) {
-    header("Location: index.php");
+$bill_id = intval($_GET['id'] ?? 0);
+
+$stmt = mysqli_prepare($conn,
+    "SELECT b.*, o.fname, o.lname, o.address, o.contact, o.email
+     FROM bill b
+     LEFT JOIN owners o ON o.id = b.owners_id
+     WHERE b.id = ? LIMIT 1"
+);
+mysqli_stmt_bind_param($stmt, "i", $bill_id);
+mysqli_stmt_execute($stmt);
+$res = mysqli_stmt_get_result($stmt);
+$bill = mysqli_fetch_assoc($res);
+mysqli_stmt_close($stmt);
+
+if (!$bill) {
+    echo '<div class="max-w-3xl mx-auto px-4 py-16 text-center">';
+    echo '<h1 class="text-2xl font-bold text-gray-800 mb-4">Bill not found</h1>';
+    echo '<a href="billing.php" class="text-ncwsc-blue hover:underline">&larr; Back to Billing</a>';
+    echo '</div>';
+    include 'footer.php';
     exit();
 }
 
-include_once 'db.php';
+$consumption = (float) ($bill['consumption'] ?? ((float)$bill['pres'] - (float)$bill['prev']));
+$calc = calculateBill($consumption, $conn);
 
-// Sanitize input
-$id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
+$statusClass = [
+    'unpaid'  => 'bg-red-100 text-red-700',
+    'partial' => 'bg-yellow-100 text-yellow-800',
+    'paid'    => 'bg-green-100 text-green-700',
+][$bill['status'] ?? 'unpaid'];
+
+$created = !empty($_GET['created']);
 ?>
 
-<div class="p-6 bg-slate-800 text-slate-100 rounded-2xl max-w-4xl w-full border border-slate-700 shadow-2xl relative z-50">
-    <!-- Modal Header -->
-    <div class="flex items-center justify-between border-b border-slate-700 pb-4 mb-4">
-        <div>
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                Billing History & Details
-            </h3>
-            <p class="text-xs text-slate-400 mt-1">
-                Bill Amount = Total Consumption &times; Price per unit
-            </p>
-        </div>
-        <button type="button" onclick="$(document).trigger('close.facebox')" class="text-slate-400 hover:text-white transition p-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
-        </button>
-    </div>
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-    <?php if ($id > 0): ?>
-        <?php
-        $stmt = mysqli_prepare($conn, "SELECT * FROM bill WHERE owners_id = ? ORDER BY id DESC");
-        mysqli_stmt_bind_param($stmt, "i", $id);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
-        ?>
-
-        <?php if (mysqli_num_rows($result) > 0): ?>
-            <!-- Table Container -->
-            <div class="overflow-x-auto rounded-xl border border-slate-700/60 max-h-[60vh]">
-                <table class="w-full text-left border-collapse text-xs">
-                    <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 border-b border-slate-700">
-                        <tr>
-                            <th class="py-3 px-4">Bill ID</th>
-                            <th class="py-3 px-4">Prev Read</th>
-                            <th class="py-3 px-4">Pres Read</th>
-                            <th class="py-3 px-4">Consumption</th>
-                            <th class="py-3 px-4">Price/Unit</th>
-                            <th class="py-3 px-4">Date</th>
-                            <th class="py-3 px-4">Bill Amount</th>
-                            <th class="py-3 px-4 text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-700/50 bg-slate-900/30 text-slate-300">
-                        <?php while ($row = mysqli_fetch_assoc($result)): 
-                            $prev = floatval($row['prev']);
-                            $pres = floatval($row['pres']);
-                            $price = floatval($row['price']);
-                            $totalcons = $pres - $prev;
-                            $bill = $totalcons * $price;
-                        ?>
-                            <tr class="hover:bg-slate-700/30 transition">
-                                <td class="py-3 px-4 font-mono font-semibold text-slate-400">#<?php echo htmlspecialchars($row['id']); ?></td>
-                                <td class="py-3 px-4 font-mono"><?php echo htmlspecialchars(number_format($prev, 2)); ?></td>
-                                <td class="py-3 px-4 font-mono"><?php echo htmlspecialchars(number_format($pres, 2)); ?></td>
-                                <td class="py-3 px-4 font-mono font-medium text-amber-400"><?php echo htmlspecialchars(number_format($totalcons, 2)); ?></td>
-                                <td class="py-3 px-4 font-mono"><?php echo htmlspecialchars(number_format($price, 2)); ?></td>
-                                <td class="py-3 px-4 whitespace-nowrap text-slate-400"><?php echo htmlspecialchars($row['date']); ?></td>
-                                <td class="py-3 px-4 font-mono font-bold text-emerald-400"><?php echo htmlspecialchars(number_format($bill, 2)); ?></td>
-                                <td class="py-3 px-4 text-center whitespace-nowrap">
-                                    <div class="flex items-center justify-center gap-2">
-                                        <a rel="facebox" href="viewpayment.php?id=<?php echo urlencode($row['id']); ?>" 
-                                           class="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition inline-flex items-center gap-1 font-semibold" title="View Payment">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                                            View
-                                        </a>
-                                        <a rel="facebox" href="delbill.php?id=<?php echo urlencode($row['id']); ?>" 
-                                           class="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition inline-flex items-center gap-1 font-semibold" title="Delete Bill">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                                            Del
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php else: ?>
-            <div class="p-8 text-center bg-slate-900/40 border border-slate-700/50 rounded-xl">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-slate-500 mx-auto mb-2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-                <p class="text-sm text-slate-400">No billing history found for this account.</p>
-            </div>
-        <?php endif; ?>
-
-        <?php mysqli_stmt_close($stmt); ?>
-
-    <?php else: ?>
-        <div class="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl text-sm flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-            Invalid Owner ID provided.
+    <?php if ($created): ?>
+        <div class="mb-6 p-4 rounded-md bg-green-50 border border-green-200 text-green-700 text-sm">
+            Bill <strong>#<?php echo intval($bill['id']); ?></strong> created successfully.
         </div>
     <?php endif; ?>
 
-    <!-- Modal Footer -->
-    <div class="pt-4 flex items-center justify-end border-t border-slate-700/60 mt-6">
-        <button type="button" onclick="$(document).trigger('close.facebox')" 
-                class="px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-xl transition">
-            Close
-        </button>
+    <div class="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden">
+
+        <div class="bg-ncwsc-blue text-white p-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold">Water Bill</h1>
+                <p class="text-blue-100 text-sm mt-1">Bill #<?php echo intval($bill['id']); ?> · <?php echo htmlspecialchars($bill['bill_month']); ?></p>
+            </div>
+            <span class="<?php echo $statusClass; ?> text-xs px-3 py-1 rounded-full font-semibold uppercase">
+                <?php echo htmlspecialchars($bill['status'] ?? 'unpaid'); ?>
+            </span>
+        </div>
+
+        <div class="p-6 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+            <div>
+                <p class="text-gray-500">Customer</p>
+                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars(($bill['fname'] ?? '') . ' ' . ($bill['lname'] ?? '')); ?></p>
+            </div>
+            <div>
+                <p class="text-gray-500">Contact</p>
+                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($bill['contact'] ?? '—'); ?></p>
+            </div>
+            <div>
+                <p class="text-gray-500">Address</p>
+                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($bill['address'] ?? '—'); ?></p>
+            </div>
+        </div>
+
+        <div class="p-6 border-b border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+            <div>
+                <p class="text-gray-500">Previous Reading</p>
+                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($bill['prev']); ?> m³</p>
+            </div>
+            <div>
+                <p class="text-gray-500">Present Reading</p>
+                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($bill['pres']); ?> m³</p>
+            </div>
+            <div>
+                <p class="text-gray-500">Consumption</p>
+                <p class="font-semibold text-gray-800"><?php echo number_format($consumption, 2); ?> m³</p>
+            </div>
+        </div>
+
+        <div class="p-6 border-b border-gray-200">
+            <h2 class="font-bold text-gray-800 mb-3">Charge Breakdown</h2>
+            <table class="w-full text-sm text-gray-700">
+                <thead class="text-left text-gray-500 border-b">
+                    <tr>
+                        <th class="py-2">Range</th>
+                        <th class="py-2 text-right">Units</th>
+                        <th class="py-2 text-right">Rate</th>
+                        <th class="py-2 text-right">Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($calc['breakdown'] as $row): ?>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-2"><?php echo htmlspecialchars($row['range']); ?></td>
+                            <td class="py-2 text-right"><?php echo number_format($row['units'], 2); ?></td>
+                            <td class="py-2 text-right"><?php echo number_format($row['rate'], 2); ?></td>
+                            <td class="py-2 text-right"><?php echo number_format($row['cost'], 2); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+
+            <div class="mt-4 space-y-1 text-sm">
+                <div class="flex justify-between"><span class="text-gray-500">Water Charge</span><span class="font-semibold"><?php echo number_format($calc['water_charge'], 2); ?></span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Sewer Charge</span><span class="font-semibold"><?php echo number_format($calc['sewer_charge'], 2); ?></span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Meter Rent</span><span class="font-semibold"><?php echo number_format($calc['meter_rent'], 2); ?></span></div>
+                <div class="flex justify-between border-t border-gray-200 pt-1 mt-1"><span class="text-gray-500">Subtotal</span><span class="font-semibold"><?php echo number_format($calc['subtotal'], 2); ?></span></div>
+                <div class="flex justify-between"><span class="text-gray-500">VAT (16%)</span><span class="font-semibold"><?php echo number_format($calc['vat'], 2); ?></span></div>
+                <div class="flex justify-between text-lg font-bold text-ncwsc-blue border-t border-gray-200 pt-2 mt-2">
+                    <span>Total Due</span><span><?php echo kes($calc['total']); ?></span>
+                </div>
+                <div class="flex justify-between"><span class="text-gray-500">Amount Paid</span><span class="font-semibold"><?php echo number_format((float)$bill['amount_paid'], 2); ?></span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Balance</span><span class="font-semibold"><?php echo number_format($calc['total'] - (float)$bill['amount_paid'], 2); ?></span></div>
+            </div>
+        </div>
+
+        <div class="p-6 bg-gray-50 flex flex-wrap justify-end gap-3">
+            <a href="billing.php" class="text-gray-600 hover:text-ncwsc-blue font-semibold py-2 px-4">Back to Billing</a>
+            <button onclick="window.print()" class="border border-ncwsc-blue text-ncwsc-blue font-semibold py-2 px-4 rounded-md hover:bg-blue-50">
+                Print
+            </button>
+            <?php if (($bill['status'] ?? 'unpaid') !== 'paid'): ?>
+                <a href="paybill.php?bill_id=<?php echo intval($bill['id']); ?>" class="btn-green text-white font-semibold py-2 px-6 rounded-md">
+                    Record Payment
+                </a>
+            <?php endif; ?>
+        </div>
+
     </div>
 </div>
+
+<?php include 'footer.php'; ?>

@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 include_once 'auth.php';
 include_once 'db.php';
+require_once 'notify.php';
 
 $user_id = intval($_SESSION['id']);
 $account = trim($_POST['account_number'] ?? '');
@@ -21,7 +22,12 @@ $stmt = mysqli_prepare($conn,
 mysqli_stmt_bind_param($stmt, "sis", $request_number, $user_id, $account);
 
 if (mysqli_stmt_execute($stmt)) {
+    $sewer_id = mysqli_insert_id($conn);
     mysqli_stmt_close($stmt);
+
+    // Send confirmation email
+    notifySewerReceived($conn, $sewer_id);
+
     $_SESSION['sewer_request_success'] = $request_number;
     header("Location: addsewer_form.php?success=1");
 } else {

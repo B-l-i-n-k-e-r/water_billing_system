@@ -5,6 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 include_once 'db.php';
 include_once 'functions.php';
+require_once 'notify.php';
 
 if (!isset($_SESSION['id'])) {
     header("Location: index.php");
@@ -83,11 +84,16 @@ if ($step === 7) {
         $vehicle, $capacity
     );
 
-    if (mysqli_stmt_execute($stmt)) {
-        mysqli_stmt_close($stmt);
-        unset($_SESSION['exhauster_wizard']);
-        header("Location: exhauster.php?step=7&success=1");
-        exit();
+   if (mysqli_stmt_execute($stmt)) {
+    $permit_id = mysqli_insert_id($conn);
+    mysqli_stmt_close($stmt);
+    unset($_SESSION['exhauster_wizard']);
+
+    // Send confirmation email
+    notifyExhausterReceived($conn, $permit_id);
+
+    header("Location: exhauster.php?step=7&success=1");
+    exit();
     } else {
         $err = mysqli_stmt_error($stmt);
         mysqli_stmt_close($stmt);

@@ -2,166 +2,194 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
 include_once 'auth.php';
-checkLevel([1, 2]); // Restricted to Admin & Cashier
-
+checkLevel([1, 2]);
 include_once 'db.php';
+include_once 'tariff.php';
+include 'admin_header.php';
 
-$owner_id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
+$error = '';
+$success = '';
 
-$id = $lname = $fname = $mi = $address = $contact = "";
-$previous = 0;
-$default_price = 10; // Fixed default price per m³
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $bill_id     = intval($_POST['bill_id'] ?? 0);
+    $amount      = (float) ($_POST['amount'] ?? 0);
+    $method      = trim($_POST['method'] ?? 'Cash');
+    $reference   = trim($_POST['reference'] ?? '');
+    $payment_date = trim($_POST['payment_date'] ?? date('Y-m-d'));
 
-if ($owner_id > 0) {
-    // 1. Fetch Owner Information
-    $stmt_owner = mysqli_prepare($conn, "SELECT id, lname, fname, mi, address, contact FROM owners WHERE id = ?");
-    if ($stmt_owner) {
-        mysqli_stmt_bind_param($stmt_owner, "i", $owner_id);
-        mysqli_stmt_execute($stmt_owner);
-        $result_owner = mysqli_stmt_get_result($stmt_owner);
+    if ($bill_id <= 0 || $amount <= 0) {
+        $error = 'Invalid bill or amount.';
+    } else {
+        // Fetch bill
+        $stmt = mysqli_prepare($conn, "SELECT * FROM bill WHERE id = ? LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "i", $bill_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $bill = mysqli_fetch_assoc($res);
+        mysqli_stmt_close($stmt);
 
-        if ($test = mysqli_fetch_assoc($result_owner)) {
-            $id      = $test['id'];
-            $lname   = $test['lname'] ?? '';
-            $fname   = $test['fname'] ?? '';
-            $mi      = $test['mi'] ?? '';
-            $address = $test['address'] ?? '';
-            $contact = $test['contact'] ?? '';
+        if (!$bill) {
+            $error = 'Bill not found.';
         } else {
-            die("<div class='p-4 bg-rose-500/10 text-rose-400 rounded-xl text-sm border border-rose-500/20'>Error: Owner data not found.</div>");
+            $existingPaid = (float) ($bill['amount_paid'] ?? 0);
+            $billAmount   = (float) ($bill['amount'] ?? $bill['price'] ?? 0);
+            $newPaid      = $existingPaid + $amount;
+            $balance      = max(0, $billAmount - $newPaid);
+
+            if ($newPaid >= $billAmount) {
+                $newStatus = 'paid';
+            } elseif ($newPaid > 0) {
+                $newStatus = 'partial';
+            } else {
+                $newStatus = 'unpaid';
+            }
+
+            // Update the bill
+            $upd = mysqli_prepare($conn,
+                "UPDATE bill SET amount_paid = ?, status = ? WHERE id = ?"
+            );
+            mysqli_stmt_bind_param($upd, "dsi", $newPaid, $newStatus, $bill_id);
+
+            if (mysqli_stmt_execute($upd)) {
+                mysqli_stmt_close($upd);
+
+                // Log to transactions (payment is a negative amount)
+                $txn = mysqli_prepare($conn,
+                    "INSERT INTO transactions (account_number, transaction_date, description, amount, balance_after)
+                     VALUES (?, ?, ?, ?, ?)"
+                );
+                if ($txn) {
+                    $account = 'OWNER-' . intval($bill['owners_id']);
+                    $desc = 'Payment via ' . $method . ($reference ? " ({$reference})" : '') . ' — Bill #' . $bill_id;
+                    $negAmount = -1 * $amount;
+                    mysqli_stmt_bind_param($txn, "sssdd", $account, $payment_date, $desc, $negAmount, $balance);
+                    mysqli_stmt_execute($txn);
+                    mysqli_stmt_close($txn);
+                }
+
+                $success = "Payment of KES " . number_format($amount, 2) . " recorded. New balance: KES " . number_format($balance, 2);
+
+                // Reload the bill
+                $stmt = mysqli_prepare($conn, "SELECT * FROM bill WHERE id = ? LIMIT 1");
+                mysqli_stmt_bind_param($stmt, "i", $bill_id);
+                mysqli_stmt_execute($stmt);
+                $res = mysqli_stmt_get_result($stmt);
+                $bill = mysqli_fetch_assoc($res);
+                mysqli_stmt_close($stmt);
+            } else {
+                $error = 'Failed to record payment: ' . mysqli_error($conn);
+                mysqli_stmt_close($upd);
+            }
         }
-        mysqli_stmt_close($stmt_owner);
     }
+} else {
+    // GET — preload bill from ?bill_id=N
+    $preload_id = intval($_GET['bill_id'] ?? 0);
+}
 
-    // 2. Fetch Previous Reading from tempo_bill using owner ID for reliable matching
-    $stmt_tempo = mysqli_prepare($conn, "SELECT Prev FROM tempo_bill WHERE id = ?");
-    if ($stmt_tempo) {
-        mysqli_stmt_bind_param($stmt_tempo, "i", $owner_id);
-        mysqli_stmt_execute($stmt_tempo);
-        $result_tempo = mysqli_stmt_get_result($stmt_tempo);
+// Data for dropdowns
+$bills = [];
+$res = mysqli_query($conn,
+    "SELECT b.id, b.amount, b.amount_paid, b.status, b.bill_month, o.fname, o.lname, o.contact
+     FROM bill b
+     LEFT JOIN owners o ON o.id = b.owners_id
+     WHERE b.status != 'paid' OR b.status IS NULL
+     ORDER BY b.id DESC
+     LIMIT 500"
+);
+while ($row = mysqli_fetch_assoc($res)) $bills[] = $row;
 
-        if ($results = mysqli_fetch_assoc($result_tempo)) {
-            $previous = $results['Prev'] ?? 0;
-        }
-        mysqli_stmt_close($stmt_tempo);
+// Preloaded bill (if any)
+$preload = null;
+if (isset($preload_id) && $preload_id > 0) {
+    foreach ($bills as $b) {
+        if (intval($b['id']) === $preload_id) { $preload = $b; break; }
     }
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Client Bill</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
 
-<!-- Modal Card Container -->
-<div class="p-6 bg-slate-800 text-slate-100 rounded-2xl max-w-md w-full border border-slate-700 shadow-2xl relative z-50 my-4 mx-auto">
-    
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b border-slate-700 pb-4 mb-5">
-        <div class="flex items-center gap-3">
-            <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Record Payment</h1>
+        <a href="viewpayment.php" class="text-sm text-gray-500 hover:text-ncwsc-blue">View All Payments &rarr;</a>
+    </div>
+
+    <?php if ($error): ?>
+        <div class="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+            <?php echo htmlspecialchars($error); ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($success): ?>
+        <div class="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-700 text-sm">
+            <?php echo htmlspecialchars($success); ?>
+        </div>
+    <?php endif; ?>
+
+    <form method="POST" action="paybill.php" class="bg-white p-8 rounded-lg shadow-md border border-gray-100 space-y-5">
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Select Bill:<span class="text-red-500">*</span></label>
+            <select name="bill_id" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
+                <option value="">-- Choose Unpaid Bill --</option>
+                <?php foreach ($bills as $b):
+                    $bal = (float)$b['amount'] - (float)$b['amount_paid'];
+                ?>
+                    <option value="<?php echo intval($b['id']); ?>"
+                        <?php echo ($preload && intval($preload['id']) === intval($b['id'])) ? 'selected' : ''; ?>>
+                        #<?php echo intval($b['id']); ?> —
+                        <?php echo htmlspecialchars($b['fname'] . ' ' . $b['lname']); ?>
+                        (<?php echo htmlspecialchars($b['contact']); ?>) —
+                        Balance: <?php echo number_format($bal, 2); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Amount (KES):<span class="text-red-500">*</span></label>
+                <input type="number" name="amount" step="0.01" min="0.01" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
             </div>
             <div>
-                <h3 class="text-base font-bold text-white leading-tight">Create Client Bill</h3>
-                <p class="text-xs text-slate-400 mt-0.5"><?php echo date('Y/m/d H:i:s'); ?></p>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Payment Date:</label>
+                <input type="date" name="payment_date" value="<?php echo date('Y-m-d'); ?>"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
             </div>
         </div>
 
-        <!-- Close Button (Facebox / History / Redirect) -->
-        <button type="button" 
-                onclick="if (typeof jQuery !== 'undefined' && jQuery('#facebox').is(':visible')) { jQuery(document).trigger('close.facebox'); } else if (window.history.length > 1) { window.history.back(); } else { window.location.href='bill.php'; }" 
-                class="text-slate-400 hover:text-white hover:bg-slate-700/50 p-1.5 rounded-lg transition">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
-        </button>
-    </div>
-
-    <!-- Client Info Summary -->
-    <div class="p-3.5 bg-slate-900/70 border border-slate-700/60 rounded-xl mb-5 space-y-1">
-        <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-medium">Client Name</span>
-            <span class="text-sm font-semibold text-indigo-300"><?php echo htmlspecialchars(trim($fname . ' ' . $mi . ' ' . $lname)); ?></span>
-        </div>
-        <?php if (!empty($contact)): ?>
-        <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-medium">Contact</span>
-            <span class="text-xs text-slate-300 font-mono"><?php echo htmlspecialchars($contact); ?></span>
-        </div>
-        <?php endif; ?>
-    </div>
-
-    <!-- Billing Input Form -->
-    <form method="post" action="addbillexec.php" class="space-y-4">
-        <input type="hidden" name="owners_id" value="<?php echo htmlspecialchars($id); ?>" />
-        <input type="hidden" name="date" value="<?php echo date('Y-m-d'); ?>" />
-
-        <!-- Previous Reading -->
-        <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">Previous Reading</label>
-            <div class="relative flex items-center">
-                <input type="number" 
-                       step="any" 
-                       name="prev" 
-                       value="<?php echo htmlspecialchars($previous); ?>" 
-                       readonly 
-                       class="w-full bg-slate-900/80 border border-slate-700 text-slate-400 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none cursor-not-allowed pr-12 font-mono" />
-                <span class="absolute right-3.5 text-xs text-slate-500 font-semibold">m³</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method:</label>
+                <select name="method"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
+                    <option>Cash</option>
+                    <option>M-Pesa</option>
+                    <option>Bank Transfer</option>
+                    <option>Cheque</option>
+                    <option>Card</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Reference / Receipt No:</label>
+                <input type="text" name="reference" placeholder="e.g. QK123XYZ"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
             </div>
         </div>
 
-        <!-- Present Reading -->
-        <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">Present Reading <span class="text-rose-400">*</span></label>
-            <div class="relative flex items-center">
-                <input type="number" 
-                       step="any" 
-                       name="pres" 
-                       required 
-                       placeholder="Enter present meter value" 
-                       autofocus
-                       class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition pr-12 font-mono" />
-                <span class="absolute right-3.5 text-xs text-slate-400 font-semibold">m³</span>
-            </div>
-        </div>
-
-        <!-- Unit Price (Now Read-only) -->
-        <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">Price per m³</label>
-            <div class="relative flex items-center">
-                <input type="number" 
-                       step="any" 
-                       name="price" 
-                       value="<?php echo htmlspecialchars($default_price); ?>" 
-                       readonly 
-                       class="w-full bg-slate-900/80 border border-slate-700 text-slate-400 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none cursor-not-allowed pr-16 font-mono" />
-                <span class="absolute right-3.5 text-xs text-slate-500 font-semibold">Tshs</span>
-            </div>
-        </div>
-
-        <!-- Form Action Controls -->
-        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700/60 mt-6">
-            <button type="button" 
-                    onclick="if (typeof jQuery !== 'undefined' && jQuery('#facebox').is(':visible')) { jQuery(document).trigger('close.facebox'); } else if (window.history.length > 1) { window.history.back(); } else { window.location.href='bill.php'; }" 
-                    class="px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-xl transition w-full sm:w-auto text-center">
-                Cancel
-            </button>
-            
-            <button type="submit" 
-                    name="total" 
-                    class="px-5 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition shadow-md shadow-indigo-600/20 active:scale-[0.98] w-full sm:w-auto text-center flex items-center justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                Add Bill
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <a href="billing.php" class="text-gray-500 hover:text-gray-700 font-semibold py-2 px-4">Cancel</a>
+            <button type="submit" class="btn-green text-white font-semibold py-2 px-6 rounded-md transition">
+                Record Payment
             </button>
         </div>
+
     </form>
 </div>
 
-</body>
-</html>
+<?php include 'footer.php'; ?>

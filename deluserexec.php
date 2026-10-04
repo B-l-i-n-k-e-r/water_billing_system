@@ -2,46 +2,26 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
 include_once 'auth.php';
-checkLevel([1]); // Restricted to Admin
+checkLevel([1]);
+include_once 'db.php';
 
-$logged_in_user_id = $_SESSION['id'] ?? $_SESSION['SESS_MEMBER_ID'] ?? null;
+$id = intval($_GET['id'] ?? $_POST['id'] ?? 0);
 
-if (!$logged_in_user_id) {
-    header("Location: index.php");
+if ($id <= 0 || $id === intval($_SESSION['id'])) {
+    header("Location: user.php?err=self");
     exit();
 }
 
-include_once 'db.php';
+$stmt = mysqli_prepare($conn, "DELETE FROM user WHERE id = ?");
+mysqli_stmt_bind_param($stmt, "i", $id);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
-    $id = intval($_POST['id']);
-    $logged_in_user_id = intval($logged_in_user_id);
-
-    // Prevent user from deleting their own active session
-    if ($id === $logged_in_user_id) {
-        header("Location: user.php?status=self_delete_error");
-        exit();
-    }
-
-    if ($id > 0) {
-        // Delete record from user table
-        $stmt = mysqli_prepare($conn, "DELETE FROM user WHERE id = ?");
-        mysqli_stmt_bind_param($stmt, "i", $id);
-        $success = mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-
-        if ($success) {
-            header("Location: user.php?status=deleted");
-        } else {
-            header("Location: user.php?status=error");
-        }
-    } else {
-        header("Location: user.php?status=invalid_id");
-    }
+if (mysqli_stmt_execute($stmt)) {
+    mysqli_stmt_close($stmt);
+    header("Location: user.php?success=deleted");
     exit();
 } else {
-    header("Location: user.php");
-    exit();
+    $err = mysqli_stmt_error($stmt);
+    mysqli_stmt_close($stmt);
+    die("Delete failed: " . htmlspecialchars($err));
 }
