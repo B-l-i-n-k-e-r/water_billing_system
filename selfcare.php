@@ -4,10 +4,11 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 include_once 'auth.php';
 include_once 'db.php';
+$pageTitle = 'Self Care';
 include 'header.php';
 
 $user_id = intval($_SESSION['id']);
-$activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'my_accounts';
+$activeTab = $_GET['tab'] ?? 'my_accounts';
 
 // Fetch user accounts (used by My Accounts tab)
 $accounts = [];
@@ -23,184 +24,241 @@ mysqli_stmt_close($stmt);
 // Flash messages
 $flash = $_GET['success'] ?? null;
 $err   = $_GET['err'] ?? null;
+
+$tabs = [
+    'my_accounts'   => 'My Accounts',
+    'add_account'   => 'Add Account',
+    'get_statement' => 'Get Statement',
+];
 ?>
+
+<style>
+  .wiz-input {
+    width: 100%;
+    padding: 0.625rem 1rem;
+    border-radius: 0.75rem;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    outline: none;
+    transition: all .15s ease;
+  }
+  .wiz-input::placeholder { color: #94a3b8; }
+  .wiz-input:hover { border-color: #cbd5e1; }
+  .wiz-input:focus {
+    background: #fff;
+    border-color: #0d7d8c;
+    box-shadow: 0 0 0 3px rgba(13,125,140,0.18);
+  }
+</style>
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-    <!-- Tabs -->
-    <div class="flex border-b border-gray-200 mb-6 overflow-x-auto">
-        <a href="?tab=my_accounts"
-           class="py-3 px-6 text-sm font-medium whitespace-nowrap
-                  <?php echo $activeTab == 'my_accounts' ? 'border-b-2 border-ncwsc-blue text-ncwsc-blue' : 'text-gray-500 hover:text-gray-700'; ?>">
-            MY ACCOUNTS
-        </a>
-        <a href="?tab=add_account"
-           class="py-3 px-6 text-sm font-medium whitespace-nowrap
-                  <?php echo $activeTab == 'add_account' ? 'border-b-2 border-ncwsc-blue text-ncwsc-blue' : 'text-gray-500 hover:text-gray-700'; ?>">
-            ADD ACCOUNT
-        </a>
-        <a href="?tab=get_statement"
-           class="py-3 px-6 text-sm font-medium whitespace-nowrap
-                  <?php echo $activeTab == 'get_statement' ? 'border-b-2 border-ncwsc-blue text-ncwsc-blue' : 'text-gray-500 hover:text-gray-700'; ?>">
-            GET STATEMENT
-        </a>
+  <div class="mb-6">
+    <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Self Care</h1>
+    <p class="text-sm text-slate-500 mt-1">Manage your NCWSC accounts and statements.</p>
+  </div>
+
+  <!-- Pill tabs -->
+  <div class="inline-flex flex-wrap gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200 mb-8">
+    <?php foreach ($tabs as $key => $label): $isActive = ($activeTab === $key); ?>
+      <a href="?tab=<?= urlencode($key) ?>"
+         class="px-4 py-2 rounded-lg text-sm font-medium transition
+                <?= $isActive
+                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60' ?>">
+        <?= htmlspecialchars($label) ?>
+      </a>
+    <?php endforeach; ?>
+  </div>
+
+  <!-- Flash messages -->
+  <?php if ($flash === '1'): ?>
+    <div class="mb-6 flex items-start gap-3 p-3.5 rounded-xl bg-emerald-50 ring-1 ring-emerald-200/70 text-emerald-800 text-sm">
+      <i data-lucide="check-circle" class="w-5 h-5 mt-0.5 shrink-0"></i>
+      <span>Action completed successfully.</span>
     </div>
+  <?php endif; ?>
+  <?php if ($err): ?>
+    <div class="mb-6 flex items-start gap-3 p-3.5 rounded-xl bg-rose-50 ring-1 ring-rose-200/70 text-rose-800 text-sm">
+      <i data-lucide="alert-triangle" class="w-5 h-5 mt-0.5 shrink-0"></i>
+      <span><?php
+        $errMap = [
+            'empty' => 'Please fill all required fields.',
+            'db'    => 'Database error. Please try again.',
+        ];
+        echo htmlspecialchars($errMap[$err] ?? 'Something went wrong.');
+      ?></span>
+    </div>
+  <?php endif; ?>
 
-    <!-- Flash messages -->
-    <?php if ($flash === '1'): ?>
-        <div class="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-700 text-sm">
-            Action completed successfully.
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+
+    <?php if ($activeTab === 'my_accounts'): ?>
+      <div class="p-6 sm:p-8">
+        <h2 class="text-lg font-semibold text-slate-900 mb-1">My Accounts</h2>
+        <p class="text-sm text-slate-500 mb-6">Your linked NCWSC customer accounts.</p>
+
+        <div class="overflow-x-auto -mx-6 sm:mx-0">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                <th class="px-4 sm:px-6 py-3 font-semibold">Account Number</th>
+                <th class="px-4 sm:px-6 py-3 font-semibold">Date Added</th>
+                <th class="px-4 sm:px-6 py-3 font-semibold">Check Balance</th>
+                <th class="px-4 sm:px-6 py-3 font-semibold">Latest E-Bill</th>
+                <th class="px-4 sm:px-6 py-3 font-semibold text-right">Remove</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <?php if (empty($accounts)): ?>
+                <tr>
+                  <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+                    <i data-lucide="inbox" class="w-10 h-10 mx-auto text-slate-300 mb-3"></i>
+                    <p>You have no accounts yet.</p>
+                    <a href="?tab=add_account" class="mt-2 inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:underline">
+                      Add your first account <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </a>
+                  </td>
+                </tr>
+              <?php else: foreach ($accounts as $acc): ?>
+                <tr class="hover:bg-slate-50 transition">
+                  <td class="px-4 sm:px-6 py-4 font-semibold text-slate-900">
+                    <?= htmlspecialchars($acc['account_number']) ?>
+                  </td>
+                  <td class="px-4 sm:px-6 py-4 text-slate-600"><?= htmlspecialchars($acc['date_added']) ?></td>
+                  <td class="px-4 sm:px-6 py-4">
+                    <a href="check_balance.php?account=<?= urlencode($acc['account_number']) ?>"
+                       class="inline-flex items-center gap-1 text-teal-700 hover:underline font-medium">
+                      KES <?= number_format((float)$acc['balance'], 2) ?>
+                    </a>
+                  </td>
+                  <td class="px-4 sm:px-6 py-4">
+                    <a href="view_ebill.php?account=<?= urlencode($acc['account_number']) ?>"
+                       class="inline-flex items-center gap-1 text-teal-700 hover:underline font-medium">
+                      KES <?= number_format((float)$acc['latest_ebill'], 2) ?>
+                    </a>
+                  </td>
+                  <td class="px-4 sm:px-6 py-4 text-right">
+                    <a href="remove_account.php?id=<?= intval($acc['id']) ?>"
+                       onclick="return confirm('Remove this account?');"
+                       class="inline-flex items-center gap-1 text-rose-600 hover:text-rose-700 font-medium">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      Remove
+                    </a>
+                  </td>
+                </tr>
+              <?php endforeach; endif; ?>
+            </tbody>
+          </table>
         </div>
-    <?php endif; ?>
-    <?php if ($err): ?>
-        <div class="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
-            <?php
-            $errMap = [
-                'empty' => 'Please fill all required fields.',
-                'db'    => 'Database error. Please try again.',
-            ];
-            echo htmlspecialchars($errMap[$err] ?? 'Something went wrong.');
-            ?>
-        </div>
-    <?php endif; ?>
+      </div>
 
-    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-100">
+    <?php elseif ($activeTab === 'add_account'): ?>
+      <div class="p-6 sm:p-8 max-w-xl">
+        <h2 class="text-lg font-semibold text-slate-900 mb-1">Add account number</h2>
+        <p class="text-sm text-slate-500 mb-6">Link an NCWSC customer account to your profile.</p>
 
-        <?php if ($activeTab == 'my_accounts'): ?>
-            <h2 class="text-xl font-bold text-gray-800 mb-4 text-center">MY ACCOUNTS</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm text-gray-600">
-                    <thead class="bg-gray-600 text-white">
-                        <tr>
-                            <th class="p-3">ACCOUNT NUMBER</th>
-                            <th class="p-3">DATE ADDED</th>
-                            <th class="p-3">CHECK BALANCE</th>
-                            <th class="p-3">LATEST E-BILL</th>
-                            <th class="p-3">REMOVE ACCOUNT</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($accounts)): ?>
-                            <tr>
-                                <td colspan="5" class="p-4 text-center text-gray-500">
-                                    You have no accounts yet. Add one using the
-                                    <a href="?tab=add_account" class="text-ncwsc-blue underline">Add Account</a> tab.
-                                </td>
-                            </tr>
-                        <?php else: foreach ($accounts as $acc): ?>
-                            <tr class="border-b border-gray-200">
-                                <td class="p-3 font-semibold text-gray-800">
-                                    <?php echo htmlspecialchars($acc['account_number']); ?>
-                                </td>
-                                <td class="p-3"><?php echo htmlspecialchars($acc['date_added']); ?></td>
-                                <td class="p-3">
-                                    <a href="check_balance.php?account=<?php echo urlencode($acc['account_number']); ?>"
-                                       class="text-ncwsc-blue hover:underline">
-                                        Check (<?php echo number_format((float)$acc['balance'], 2); ?>)
-                                    </a>
-                                </td>
-                                <td class="p-3">
-                                    <a href="view_ebill.php?account=<?php echo urlencode($acc['account_number']); ?>"
-                                       class="text-ncwsc-blue hover:underline">
-                                        View (<?php echo number_format((float)$acc['latest_ebill'], 2); ?>)
-                                    </a>
-                                </td>
-                                <td class="p-3">
-                                    <a href="remove_account.php?id=<?php echo intval($acc['id']); ?>"
-                                       class="text-red-500 hover:underline"
-                                       onclick="return confirm('Remove this account?');">
-                                        Remove
-                                    </a>
-                                </td>
-                            </tr>
-                        <?php endforeach; endif; ?>
-                    </tbody>
-                </table>
+        <form action="add_account_process.php" method="POST">
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Account Number</label>
+            <input type="text" name="account_number" required placeholder="e.g. 1234567"
+                   class="wiz-input">
+          </div>
+          <button type="submit"
+                  class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white
+                         bg-gradient-to-b from-slate-800 to-slate-900
+                         shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 transition-all">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Add account
+          </button>
+        </form>
+      </div>
+
+    <?php elseif ($activeTab === 'get_statement'): ?>
+      <div class="p-6 sm:p-8">
+        <h2 class="text-lg font-semibold text-slate-900 mb-1">Get statement</h2>
+        <p class="text-sm text-slate-500 mb-6">Request a customer statement for a specific account and period.</p>
+
+        <?php if (!empty($_SESSION['statement'])): ?>
+          <div class="mb-8 rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="bg-slate-50 px-5 py-4 border-b border-slate-200">
+              <div class="flex items-start gap-3">
+                <i data-lucide="file-text" class="w-5 h-5 text-slate-500 mt-0.5"></i>
+                <div class="text-sm text-slate-700">
+                  <p><strong>Account:</strong> <?= htmlspecialchars($_SESSION['statement']['account']) ?></p>
+                  <p class="text-slate-500 mt-0.5">
+                    <?= htmlspecialchars($_SESSION['statement']['from']) ?>
+                    &rarr;
+                    <?= htmlspecialchars($_SESSION['statement']['to']) ?>
+                  </p>
+                </div>
+              </div>
             </div>
-
-        <?php elseif ($activeTab == 'add_account'): ?>
-            <h2 class="text-xl font-bold text-gray-800 mb-4 text-center">ADD ACCOUNT NUMBER</h2>
-            <form action="add_account_process.php" method="POST" class="max-w-md mx-auto">
-                <div class="mb-4">
-                    <label class="block text-sm text-gray-600 mb-1">Account Number:</label>
-                    <input type="text" name="account_number" required placeholder="1234567"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
-                </div>
-                <button type="submit" class="w-full btn-green text-white font-semibold py-2 rounded-md">
-                    ADD ACCOUNT
-                </button>
-            </form>
-
-        <?php elseif ($activeTab == 'get_statement'): ?>
-            <h2 class="text-xl font-bold text-gray-800 mb-4 text-center">FILL DETAILS BELOW</h2>
-
-            <?php if (!empty($_SESSION['statement'])): ?>
-                <!-- Statement result -->
-                <div class="mb-6 border border-gray-200 rounded-md overflow-hidden">
-                    <div class="bg-gray-100 px-4 py-3 border-b border-gray-200 text-sm">
-                        <p><strong>Account:</strong> <?php echo htmlspecialchars($_SESSION['statement']['account']); ?></p>
-                        <p><strong>Period:</strong> <?php echo htmlspecialchars($_SESSION['statement']['from']); ?>
-                           to <?php echo htmlspecialchars($_SESSION['statement']['to']); ?></p>
-                    </div>
-                    <table class="w-full text-left text-sm text-gray-600">
-                        <thead class="bg-gray-600 text-white">
-                            <tr>
-                                <th class="p-3">DATE</th>
-                                <th class="p-3">DESCRIPTION</th>
-                                <th class="p-3">AMOUNT</th>
-                                <th class="p-3">BALANCE</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($_SESSION['statement']['rows'])): ?>
-                                <tr><td colspan="4" class="p-4 text-center text-gray-500">
-                                    No transactions found for this period.
-                                </td></tr>
-                            <?php else: foreach ($_SESSION['statement']['rows'] as $row): ?>
-                                <tr class="border-b border-gray-200">
-                                    <td class="p-3"><?php echo htmlspecialchars($row['transaction_date']); ?></td>
-                                    <td class="p-3"><?php echo htmlspecialchars($row['description']); ?></td>
-                                    <td class="p-3"><?php echo number_format((float)$row['amount'], 2); ?></td>
-                                    <td class="p-3"><?php echo number_format((float)$row['balance_after'], 2); ?></td>
-                                </tr>
-                            <?php endforeach; endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php unset($_SESSION['statement']); ?>
-            <?php endif; ?>
-
-            <form action="get_statement_process.php" method="POST"
-                  class="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm text-gray-600 mb-1">Date From:</label>
-                    <input type="date" name="date_from" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-600 mb-1">Date To:</label>
-                    <input type="date" name="date_to" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-600 mb-1">Account Number:</label>
-                    <input type="text" name="account_number" required placeholder="1234567"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-600 mb-1">Mobile Number:</label>
-                    <input type="text" name="mobile_number" required placeholder="0700000000"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ncwsc-blue outline-none">
-                </div>
-                <div class="md:col-span-2 text-center mt-4">
-                    <button type="submit" class="btn-green text-white font-semibold py-2 px-8 rounded-md">
-                        SUBMIT
-                    </button>
-                </div>
-            </form>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-500 text-xs uppercase tracking-wide">
+                    <th class="px-5 py-3 font-semibold">Date</th>
+                    <th class="px-5 py-3 font-semibold">Description</th>
+                    <th class="px-5 py-3 font-semibold text-right">Amount</th>
+                    <th class="px-5 py-3 font-semibold text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <?php if (empty($_SESSION['statement']['rows'])): ?>
+                    <tr>
+                      <td colspan="4" class="px-5 py-10 text-center text-slate-500">
+                        No transactions found for this period.
+                      </td>
+                    </tr>
+                  <?php else: foreach ($_SESSION['statement']['rows'] as $row): ?>
+                    <tr class="hover:bg-slate-50">
+                      <td class="px-5 py-3 text-slate-600"><?= htmlspecialchars($row['transaction_date']) ?></td>
+                      <td class="px-5 py-3 text-slate-800"><?= htmlspecialchars($row['description']) ?></td>
+                      <td class="px-5 py-3 text-right text-slate-700 font-medium"><?= number_format((float)$row['amount'], 2) ?></td>
+                      <td class="px-5 py-3 text-right text-slate-700 font-medium"><?= number_format((float)$row['balance_after'], 2) ?></td>
+                    </tr>
+                  <?php endforeach; endif; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <?php unset($_SESSION['statement']); ?>
         <?php endif; ?>
 
-    </div>
+        <form action="get_statement_process.php" method="POST"
+              class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Date from</label>
+            <input type="date" name="date_from" required class="wiz-input">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Date to</label>
+            <input type="date" name="date_to" required class="wiz-input">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Account number</label>
+            <input type="text" name="account_number" required placeholder="e.g. 1234567" class="wiz-input">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Mobile number</label>
+            <input type="tel" name="mobile_number" required placeholder="0700000000" class="wiz-input">
+          </div>
+          <div class="md:col-span-2 mt-2">
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white
+                           bg-gradient-to-b from-slate-800 to-slate-900
+                           shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 transition-all">
+              <i data-lucide="search" class="w-4 h-4"></i>
+              Get statement
+            </button>
+          </div>
+        </form>
+      </div>
+    <?php endif; ?>
+
+  </div>
 </div>
 
 <?php include 'footer.php'; ?>

@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 include_once 'auth.php';
 include_once 'db.php';
+$pageTitle = 'My Exhauster Permits';
 include 'header.php';
 
 $user_id = intval($_SESSION['id']);
@@ -20,15 +21,14 @@ while ($row = mysqli_fetch_assoc($res)) $permits[] = $row;
 mysqli_stmt_close($stmt);
 
 $statusColors = [
-    'pending'   => 'bg-yellow-100 text-yellow-800',
-    'in_review' => 'bg-blue-100 text-blue-800',
-    'approved'  => 'bg-green-100 text-green-800',
-    'rejected'  => 'bg-red-100 text-red-800',
+    'pending'   => 'bg-amber-50 text-amber-700 ring-amber-200/70',
+    'in_review' => 'bg-blue-50 text-blue-700 ring-blue-200/70',
+    'approved'  => 'bg-emerald-50 text-emerald-700 ring-emerald-200/70',
+    'rejected'  => 'bg-rose-50 text-rose-700 ring-rose-200/70',
 ];
-
 $statusLabels = [
-    'pending'   => 'Pending Review',
-    'in_review' => 'In Review',
+    'pending'   => 'Pending review',
+    'in_review' => 'In review',
     'approved'  => 'Approved',
     'rejected'  => 'Rejected',
 ];
@@ -36,73 +36,85 @@ $statusLabels = [
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-800">My Exhauster Permits</h1>
-            <p class="text-sm text-gray-500 mt-1">Track the status of your submitted permit applications</p>
-        </div>
-        <a href="exhauster.php" class="btn-blue text-white font-semibold py-2 px-6 rounded-md inline-flex items-center gap-2 w-max">
-            <i data-lucide="plus" class="w-4 h-4"></i> New Permit
-        </a>
+  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-8 gap-4">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">My exhauster permits</h1>
+      <p class="text-sm text-slate-500 mt-1">Track the status of your submitted permit applications.</p>
+    </div>
+    <a href="exhauster.php"
+       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white
+              bg-gradient-to-b from-slate-800 to-slate-900
+              shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 transition-all w-max">
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      New permit
+    </a>
+  </div>
+
+  <?php if (empty($permits)): ?>
+    <div class="rounded-2xl bg-white border border-slate-200 p-10 text-center">
+      <div class="mx-auto w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+        <i data-lucide="truck" class="w-6 h-6 text-slate-500"></i>
+      </div>
+      <h2 class="text-base font-semibold text-slate-900">No exhauster permits yet</h2>
+      <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
+        Apply for a permit — once submitted, it will appear here with its real-time status.
+      </p>
+      <a href="exhauster.php"
+         class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white
+                bg-gradient-to-b from-slate-800 to-slate-900
+                shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 transition-all">
+        <i data-lucide="file-plus" class="w-4 h-4"></i>
+        Apply for permit
+      </a>
+    </div>
+  <?php else: ?>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+              <th class="px-5 py-3 font-semibold">Permit #</th>
+              <th class="px-5 py-3 font-semibold">Vehicle</th>
+              <th class="px-5 py-3 font-semibold">Capacity</th>
+              <th class="px-5 py-3 font-semibold">Submitted</th>
+              <th class="px-5 py-3 font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <?php foreach ($permits as $p):
+              $key = strtolower($p['status'] ?? 'pending');
+              $cls = $statusColors[$key] ?? 'bg-slate-100 text-slate-700 ring-slate-200';
+              $lbl = $statusLabels[$key] ?? ucfirst($p['status'] ?? 'Unknown');
+            ?>
+              <tr class="hover:bg-slate-50 transition">
+                <td class="px-5 py-4 font-semibold text-slate-900">
+                  <?= htmlspecialchars($p['permit_number']) ?>
+                </td>
+                <td class="px-5 py-4 text-slate-600"><?= htmlspecialchars($p['vehicle_registration'] ?: '—') ?></td>
+                <td class="px-5 py-4 text-slate-600">
+                  <?= $p['vehicle_capacity'] ? htmlspecialchars($p['vehicle_capacity']) . ' L' : '—' ?>
+                </td>
+                <td class="px-5 py-4 text-slate-600">
+                  <?= htmlspecialchars(date('d M Y, H:i', strtotime($p['created_at']))) ?>
+                </td>
+                <td class="px-5 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 <?= $cls ?>">
+                    <span class="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+                    <?= htmlspecialchars($lbl) ?>
+                  </span>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <?php if (empty($permits)): ?>
-        <div class="bg-blue-50 border border-blue-200 text-blue-800 text-sm p-6 rounded-md flex items-start gap-3">
-            <i data-lucide="info" class="w-5 h-5 mt-0.5 flex-shrink-0"></i>
-            <div>
-                <p class="font-semibold mb-1">You have no exhauster permits yet.</p>
-                <p>
-                    Apply for one from the
-                    <a href="exhauster.php" class="font-semibold underline">Exhauster Permit</a>
-                    page. Once submitted, it will appear here with its status.
-                </p>
-            </div>
-        </div>
-    <?php else: ?>
-        <div class="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm text-gray-600">
-                    <thead class="bg-gray-600 text-white">
-                        <tr>
-                            <th class="p-3">PERMIT #</th>
-                            <th class="p-3">VEHICLE</th>
-                            <th class="p-3">CAPACITY</th>
-                            <th class="p-3">SUBMITTED</th>
-                            <th class="p-3">STATUS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($permits as $p):
-                            $cls = $statusColors[$p['status']] ?? 'bg-gray-100 text-gray-800';
-                            $lbl = $statusLabels[$p['status']] ?? ucfirst($p['status']);
-                        ?>
-                            <tr class="border-b border-gray-200 hover:bg-gray-50">
-                                <td class="p-3 font-semibold text-gray-800">
-                                    <?php echo htmlspecialchars($p['permit_number']); ?>
-                                </td>
-                                <td class="p-3"><?php echo htmlspecialchars($p['vehicle_registration'] ?: '—'); ?></td>
-                                <td class="p-3">
-                                    <?php echo $p['vehicle_capacity'] ? htmlspecialchars($p['vehicle_capacity']) . ' L' : '—'; ?>
-                                </td>
-                                <td class="p-3">
-                                    <?php echo htmlspecialchars(date('d M Y, H:i', strtotime($p['created_at']))); ?>
-                                </td>
-                                <td class="p-3">
-                                    <span class="<?php echo $cls; ?> text-xs px-3 py-1 rounded-full font-semibold uppercase">
-                                        <?php echo htmlspecialchars($lbl); ?>
-                                    </span>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <p class="text-xs text-gray-500 mt-4">
-            Status updates are made by NCWSC staff. Check this page regularly to see progress on your permit.
-        </p>
-    <?php endif; ?>
+    <p class="text-xs text-slate-500 mt-4 flex items-center gap-1.5">
+      <i data-lucide="info" class="w-3.5 h-3.5"></i>
+      Status updates are made by NCWSC staff. Check this page regularly for progress.
+    </p>
+  <?php endif; ?>
 </div>
 
 <?php include 'footer.php'; ?>

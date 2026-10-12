@@ -64,5 +64,5 @@ mysqli_stmt_close($mark);
 
 mysqli_close($conn);
 
-header("Location: index.php?reset=1");
+header("Location: login.php?reset=1");
 exit();

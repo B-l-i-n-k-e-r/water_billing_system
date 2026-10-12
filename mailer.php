@@ -19,9 +19,17 @@ use PHPMailer\PHPMailer\Exception;
  * @return array{ok:bool, error?:string}
  */
 function sendEmail($to, $subject, $htmlBody, $toName = '') {
-    $config = require __DIR__ . '/config.php';
-    $smtp   = $config['smtp'];
-    $app    = $config['app'];
+    // Load config ONCE per request, cache it in a static.
+    // Using `require` (not `require_once`) inside the static guard means we
+    // always get the array back — never the `true` returned by require_once
+    // on repeat loads.
+    static $config = null;
+    if ($config === null) {
+        $config = require __DIR__ . '/config.php';
+    }
+
+    $smtp = $config['smtp'];
+    $app  = $config['app'];
 
     $mail = new PHPMailer(true);
 
@@ -32,7 +40,9 @@ function sendEmail($to, $subject, $htmlBody, $toName = '') {
         $mail->SMTPAuth   = true;
         $mail->Username   = $smtp['username'];
         $mail->Password   = str_replace(' ', '', $smtp['password']); // strip spaces
-        $mail->SMTPSecure = $smtp['encryption'] === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->SMTPSecure = $smtp['encryption'] === 'ssl'
+            ? PHPMailer::ENCRYPTION_SMTPS
+            : PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = (int) $smtp['port'];
         $mail->CharSet    = 'UTF-8';
 
@@ -75,9 +85,9 @@ function emailTemplate($title, $bodyHtml) {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
         <tr>
-          <td style="background:#0066CC;padding:20px 28px;color:#fff;">
+          <td style="background:#0f2744;padding:20px 28px;color:#fff;">
             <h1 style="margin:0;font-size:20px;">NCWSC Online Services</h1>
-            <p style="margin:4px 0 0;font-size:12px;color:#cce0f5;">Nairobi City Water and Sewerage Company</p>
+            <p style="margin:4px 0 0;font-size:12px;color:#cbd5e1;">Nairobi City Water and Sewerage Company</p>
           </td>
         </tr>
         <tr>

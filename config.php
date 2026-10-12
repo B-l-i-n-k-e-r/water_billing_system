@@ -1,16 +1,31 @@
 <?php
 /**
- * Central configuration. Reads from environment variables first,
- * falls back to hardcoded defaults for local dev.
+ * Central configuration.
  *
- * To set in production, add to your .env or Apache/Nginx config:
- *   NCWSC_SMTP_USER, NCWSC_SMTP_PASS, NCWSC_SMTP_FROM, NCWSC_BASE_URL
+ * Values come from .env (loaded via phpdotenv) with sane fallbacks.
+ * Use createMutable so getenv() works — createImmutable only writes $_ENV.
  */
 
-function env($key, $default = null) {
-    $val = getenv($key);
-    if ($val === false || $val === '') return $default;
-    return $val;
+// Load .env (if it exists) — safe to require this many times
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+
+    if (file_exists(__DIR__ . '/.env')) {
+        $dotenv = Dotenv\Dotenv::createMutable(__DIR__);
+        $dotenv->safeLoad();
+    }
+}
+
+// env() helper — guarded against redeclaration, reads from all three sources
+if (!function_exists('env')) {
+    function env($key, $default = null) {
+        $val = getenv($key);
+        if ($val === false || $val === '') {
+            $val = $_ENV[$key] ?? $_SERVER[$key] ?? null;
+        }
+        if ($val === false || $val === null || $val === '') return $default;
+        return $val;
+    }
 }
 
 return [
@@ -26,7 +41,7 @@ return [
         'port'       => (int) env('NCWSC_SMTP_PORT', 587),
         'encryption' => env('NCWSC_SMTP_ENC', 'tls'),
         'username'   => env('NCWSC_SMTP_USER', 'vinniemariba2004@gmail.com'),
-        'password'   => env('NCWSC_SMTP_PASS', 'xxxx xxxx xxxx xxxx'),
+        'password'   => env('NCWSC_SMTP_PASS', ''),
         'from_email' => env('NCWSC_SMTP_FROM', 'vinniemariba2004@gmail.com'),
         'from_name'  => 'NCWSC Online Services',
     ],
@@ -34,6 +49,6 @@ return [
     'app' => [
         'name'     => 'NCWSC Online Services',
         'base_url' => env('NCWSC_BASE_URL', 'http://localhost:8000'),
-        'debug'    => env('NCWSC_DEBUG', 'true') === 'true',
+        'debug'    => env('NCWSC_DEBUG', 'false') === 'true',
     ],
 ];

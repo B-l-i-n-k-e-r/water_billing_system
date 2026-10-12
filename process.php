@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 include_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['username'], $_POST['password'])) {
-    header("Location: index.php");
+    header("Location: login.php");
     exit();
 }
 
@@ -14,7 +14,7 @@ $username = trim($_POST['username']);
 $password = trim($_POST['password']);
 
 if (empty($username) || empty($password)) {
-    header("Location: index.php?err=1");
+    header("Location: login.php?err=1");
     exit();
 }
 
@@ -26,7 +26,7 @@ $stmt = mysqli_prepare($conn,
 
 if (!$stmt) {
     error_log("process.php prepare failed: " . mysqli_error($conn));
-    header("Location: index.php?err=1");
+    header("Location: login.php?err=1");
     exit();
 }
 
@@ -38,7 +38,7 @@ if (!$row = mysqli_fetch_assoc($result)) {
     // No such user
     mysqli_stmt_close($stmt);
     mysqli_close($conn);
-    header("Location: index.php?err=1");
+    header("Location: login.php?err=1");
     exit();
 }
 mysqli_stmt_close($stmt);
@@ -48,7 +48,7 @@ $password_ok = password_verify($password, $hashed_password) || $password === $ha
 
 if (!$password_ok) {
     mysqli_close($conn);
-    header("Location: index.php?err=1");
+    header("Location: login.php?err=1");
     exit();
 }
 
@@ -69,24 +69,27 @@ if ($password === $hashed_password) {
 $verified = isset($row['verified']) ? intval($row['verified']) : 1;
 
 if ($verified === 0) {
-    require_once 'otp_helper.php';
-$rl = otpRateLimit($conn, $row['id'], 'verify');
-if ($rl['allowed']) {
-    $code = createOTP($conn, $row['id'], 'verify', 10);
-    $body = otpEmailBody($row['name'] ?? 'User', $code, 'verify');
-    @sendEmail($row['email'] ?? '', 'Verify Your NCWSC Account', $body, $row['name'] ?? '');
-} else {
-    error_log("OTP rate limited on login for user {$row['id']}");
-}
-    // Not verified — generate a fresh OTP and send them to otp.php
+    // Load all OTP dependencies BEFORE any function is called
     require_once 'mailer.php';
     require_once 'otp_helper.php';
     require_once 'emails/otp_email.php';
 
-    $code = createOTP($conn, $row['id'], 'verify', 10);
-    $body = otpEmailBody($row['name'] ?? 'User', $code, 'verify');
-    @sendEmail($row['email'] ?? '', 'Verify Your NCWSC Account', $body, $row['name'] ?? '');
+    $rl = otpRateLimit($conn, $row['id'], 'verify');
 
+    if ($rl['allowed']) {
+        // Exactly ONE OTP gets created + sent
+        $code = createOTP($conn, $row['id'], 'verify', 10);
+        $body = otpEmailBody($row['name'] ?? 'User', $code, 'verify');
+        $mail = sendEmail($row['email'] ?? '', 'Verify Your NCWSC Account', $body, $row['name'] ?? '');
+
+        if (empty($mail['ok'])) {
+            error_log("OTP email failed on login for user {$row['id']}: " . ($mail['error'] ?? 'unknown'));
+        }
+    } else {
+        error_log("OTP rate limited on login for user {$row['id']} — wait {$rl['wait_seconds']}s");
+    }
+
+    // Not verified — send them to otp.php
     session_regenerate_id(true);
     $_SESSION['pending_user_id']    = $row['id'];
     $_SESSION['pending_user_email'] = $row['email'] ?? '';

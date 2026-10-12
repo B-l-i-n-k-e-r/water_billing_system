@@ -44,7 +44,7 @@ if (verifyOTP($conn, $uid, $otp, 'verify')) {
     // Clear pending session
     unset($_SESSION['pending_user_id'], $_SESSION['pending_user_email'], $_SESSION['pending_user_name']);
 
-    header("Location: index.php?verified=1");
+    header("Location: login.php?verified=1");
     exit();
 } else {
     header("Location: otp.php?err=code");
