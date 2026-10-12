@@ -10,7 +10,26 @@ include 'header.php';
 $user_id = intval($_SESSION['id']);
 $activeTab = $_GET['tab'] ?? 'my_accounts';
 
-// Fetch user accounts (used by My Accounts tab)
+// ---- Fetch the logged-in user's own details ----
+$profile = [
+    'name'   => $_SESSION['name']  ?? '',
+    'email'  => $_SESSION['email'] ?? '',
+    'mobile' => '',
+];
+$profStmt = mysqli_prepare($conn, "SELECT name, email, mobile FROM user WHERE id = ? LIMIT 1");
+if ($profStmt) {
+    mysqli_stmt_bind_param($profStmt, "i", $user_id);
+    mysqli_stmt_execute($profStmt);
+    $profRes = mysqli_stmt_get_result($profStmt);
+    if ($profRow = mysqli_fetch_assoc($profRes)) {
+        $profile['name']   = $profRow['name']   ?: $profile['name'];
+        $profile['email']  = $profRow['email']  ?: $profile['email'];
+        $profile['mobile'] = $profRow['mobile'] ?? '';
+    }
+    mysqli_stmt_close($profStmt);
+}
+
+// ---- Fetch linked customer accounts ----
 $accounts = [];
 $stmt = mysqli_prepare($conn, "SELECT * FROM customer_accounts WHERE user_id = ? ORDER BY date_added DESC");
 mysqli_stmt_bind_param($stmt, "i", $user_id);
@@ -59,6 +78,40 @@ $tabs = [
     <p class="text-sm text-slate-500 mt-1">Manage your NCWSC accounts and statements.</p>
   </div>
 
+  <!-- Profile card -->
+  <div class="mb-6 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-6 sm:p-7">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+      <div class="shrink-0 w-14 h-14 rounded-2xl bg-white/10 backdrop-blur ring-1 ring-white/20
+                  flex items-center justify-center">
+        <i data-lucide="user" class="w-6 h-6 text-white"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-300">Signed in as</p>
+        <p class="text-lg font-semibold text-white mt-0.5 truncate">
+          <?= htmlspecialchars($profile['name'] ?: 'NCWSC User') ?>
+        </p>
+        <div class="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-sm text-slate-300">
+          <?php if (!empty($profile['email'])): ?>
+            <span class="inline-flex items-center gap-1.5 min-w-0">
+              <i data-lucide="mail" class="w-3.5 h-3.5 shrink-0"></i>
+              <span class="truncate"><?= htmlspecialchars($profile['email']) ?></span>
+            </span>
+          <?php endif; ?>
+          <?php if (!empty($profile['mobile'])): ?>
+            <span class="inline-flex items-center gap-1.5">
+              <i data-lucide="phone" class="w-3.5 h-3.5 shrink-0"></i>
+              <?= htmlspecialchars($profile['mobile']) ?>
+            </span>
+          <?php endif; ?>
+        </div>
+      </div>
+      <div class="shrink-0 text-left sm:text-right">
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-300">Linked accounts</p>
+        <p class="text-2xl font-bold text-white tabular-nums mt-0.5"><?= count($accounts) ?></p>
+      </div>
+    </div>
+  </div>
+
   <!-- Pill tabs -->
   <div class="inline-flex flex-wrap gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200 mb-8">
     <?php foreach ($tabs as $key => $label): $isActive = ($activeTab === $key); ?>
@@ -96,7 +149,7 @@ $tabs = [
 
     <?php if ($activeTab === 'my_accounts'): ?>
       <div class="p-6 sm:p-8">
-        <h2 class="text-lg font-semibold text-slate-900 mb-1">My Accounts</h2>
+        <h2 class="text-lg font-semibold text-slate-900 mb-1">My accounts</h2>
         <p class="text-sm text-slate-500 mb-6">Your linked NCWSC customer accounts.</p>
 
         <div class="overflow-x-auto -mx-6 sm:mx-0">
@@ -243,7 +296,12 @@ $tabs = [
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Mobile number</label>
-            <input type="tel" name="mobile_number" required placeholder="0700000000" class="wiz-input">
+            <input type="tel" name="mobile_number" required
+                   value="<?= htmlspecialchars($profile['mobile']) ?>"
+                   placeholder="0700000000" class="wiz-input">
+            <?php if (!empty($profile['mobile'])): ?>
+              <p class="text-xs text-slate-500 mt-1.5">Auto-filled from your profile — edit if needed.</p>
+            <?php endif; ?>
           </div>
           <div class="md:col-span-2 mt-2">
             <button type="submit"

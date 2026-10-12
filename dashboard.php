@@ -49,6 +49,14 @@ include 'header.php';
       'href'  => 'exhauster.php',
       'cta'   => 'Apply for permit',
     ],
+
+    [
+    'icon'  => 'credit-card',
+    'title' => 'Pay My Bill',
+    'desc'  => 'Settle your outstanding bills securely via card or M-Pesa.',
+    'href'  => 'pay_my_bill.php',
+    'cta'   => 'Pay now',
+],
   ];
 ?>
 

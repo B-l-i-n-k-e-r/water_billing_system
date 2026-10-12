@@ -130,4 +130,34 @@ $preselect = intval($_GET['owners_id'] ?? 0);
 
 </div>
 
+<script>
+document.getElementById('owners_id').addEventListener('change', function () {
+  const ownersId = this.value;
+  const prevInput = document.getElementById('prev');
+
+  if (!ownersId) {
+    prevInput.value = '';
+    prevInput.removeAttribute('data-autofilled');
+    return;
+  }
+
+  fetch('get_last_reading.php?owners_id=' + encodeURIComponent(ownersId))
+    .then(r => r.json())
+    .then(data => {
+      if (data.prev !== null && data.prev !== undefined) {
+        prevInput.value = data.prev;
+        prevInput.dataset.autofilled = '1';
+        // Optional: brief highlight to show it changed
+        prevInput.style.transition = 'background-color .4s';
+        prevInput.style.backgroundColor = 'rgba(13,125,140,0.12)';
+        setTimeout(() => prevInput.style.backgroundColor = '', 600);
+      } else {
+        prevInput.value = '';
+        prevInput.removeAttribute('data-autofilled');
+      }
+    })
+    .catch(() => {});
+});
+</script>
+
 <?php include 'footer.php'; ?>
